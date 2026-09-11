@@ -2,9 +2,6 @@
   "id": "antigravity",
   "name": "Antigravity",
   "description": "Run Google Antigravity CLI through OpenClaw.",
-  "categories": [
-    "agent-runtimes"
-  ],
   "providers": [
     "antigravity"
   ],
