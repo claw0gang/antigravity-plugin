@@ -1,0 +1,186 @@
+{
+  "id": "antigravity",
+  "name": "Antigravity",
+  "description": "Run Google Antigravity CLI through OpenClaw.",
+  "categories": [
+    "agent-runtimes"
+  ],
+  "providers": [
+    "antigravity"
+  ],
+  "providerCatalogEntry": "./dist/provider-discovery.js",
+  "cliBackends": [
+    "antigravity-cli"
+  ],
+  "setup": {
+    "cliBackends": [
+      "antigravity-cli"
+    ],
+    "requiresRuntime": false
+  },
+  "activation": {
+    "onStartup": true,
+    "onProviders": [
+      "antigravity"
+    ],
+    "onAgentHarnesses": [
+      "antigravity"
+    ]
+  },
+  "enabledByDefault": false,
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "command": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Antigravity CLI command. Defaults to agy on PATH."
+      },
+      "printTimeout": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Value passed to agy --print-timeout."
+      },
+      "sandbox": {
+        "type": "boolean",
+        "description": "Pass --sandbox to agy."
+      },
+      "dangerouslySkipPermissions": {
+        "type": "boolean",
+        "description": "Explicitly pass --dangerously-skip-permissions to AGY headless execution for both the native harness and compatibility CLI, requesting always-proceed permission mode for native tools. Disabled by default; use only for intentionally unrestricted execution."
+      },
+      "mode": {
+        "type": "string",
+        "enum": [
+          "accept-edits",
+          "plan"
+        ]
+      },
+      "agent": {
+        "type": "string",
+        "minLength": 1
+      },
+      "project": {
+        "type": "string",
+        "minLength": 1
+      },
+      "newProject": {
+        "type": "boolean"
+      },
+      "addDirs": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1
+        },
+        "uniqueItems": true
+      },
+      "logFile": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "configContracts": {
+    "dangerousFlags": [
+      {
+        "path": "dangerouslySkipPermissions",
+        "equals": true
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "antigravity-cli": {
+        "models": [
+          {
+            "id": "sonnet-4-6",
+            "reasoning": false
+          },
+          {
+            "id": "opus-4-6",
+            "reasoning": false
+          },
+          {
+            "id": "gpt-oss",
+            "reasoning": false
+          },
+          {
+            "id": "gemini-3.8-flash-high",
+            "reasoning": false
+          },
+          {
+            "id": "gemini-3.8-flash-medium",
+            "reasoning": false
+          },
+          {
+            "id": "gemini-3.8-flash-low",
+            "reasoning": false
+          },
+          {
+            "id": "gemini-3.7-flash-high",
+            "reasoning": false
+          },
+          {
+            "id": "gemini-3.7-flash-medium",
+            "reasoning": false
+          },
+          {
+            "id": "gemini-3.7-flash-low",
+            "reasoning": false
+          },
+          {
+            "id": "gemini-3.6-flash-high",
+            "reasoning": false
+          },
+          {
+            "id": "gemini-3.6-flash-medium",
+            "reasoning": false
+          },
+          {
+            "id": "gemini-3.6-flash-low",
+            "reasoning": false
+          },
+          {
+            "id": "gemini-3.5-flash-high",
+            "reasoning": false
+          },
+          {
+            "id": "gemini-3.5-flash-medium",
+            "reasoning": false
+          },
+          {
+            "id": "gemini-3.5-flash-low",
+            "reasoning": false
+          },
+          {
+            "id": "gemini-3.1-pro-high",
+            "reasoning": false
+          },
+          {
+            "id": "gemini-3.1-pro-low",
+            "reasoning": false
+          },
+          {
+            "id": "claude-sonnet-4-6",
+            "reasoning": false
+          },
+          {
+            "id": "claude-opus-4-6-thinking",
+            "reasoning": false
+          },
+          {
+            "id": "gpt-oss-120b-medium",
+            "reasoning": false
+          }
+        ]
+      }
+    },
+    "discovery": {
+      "antigravity": "runtime",
+      "antigravity-cli": "static"
+    },
+    "runtimeAugment": true
+  }
+}

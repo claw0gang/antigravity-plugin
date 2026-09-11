@@ -1,0 +1,43 @@
+{
+  "schema": "antigravity-public-export/v1",
+  "status": "source-export-pre-artifact",
+  "canonical": {
+    "repository": "claw0gang/antigravity",
+    "commit": "667cd39ab7a171d438668d5943e46c0977db6a29",
+    "tree": "4b5428acc6a26e79efbcece12ebb81630ed65c85",
+    "runtimeSourceTree": "98f8a270a739a702d78e639e8a5bd9f675dee2d9",
+    "version": "0.2.6"
+  },
+  "export": {
+    "repository": "claw0gang/antigravity-plugin",
+    "branch": "main",
+    "policy": "runtime-source-byte-identical; public packaging and documentation sanitized"
+  },
+  "included": [
+    "README.md",
+    "package.json",
+    "openclaw.plugin.json",
+    "tsconfig.json",
+    "src/**",
+    ".gitignore",
+    "EXPORT-MANIFEST.json"
+  ],
+  "excluded": [
+    ".state/**",
+    ".github/**",
+    "docs/**",
+    "tests/**",
+    "examples/**",
+    "internal handovers",
+    "governance records",
+    "Tokyo/production operational evidence",
+    "development-only artifacts"
+  ],
+  "packageFiles": [
+    "dist/**",
+    "openclaw.plugin.json",
+    "README.md"
+  ],
+  "runtimeInvariant": "Every src/** Git blob is byte-identical to the canonical commit above.",
+  "artifact": null
+}
