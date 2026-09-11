@@ -35,6 +35,7 @@
   ],
   "packageFiles": [
     "dist/**",
+    "src/**",
     "openclaw.plugin.json",
     "README.md"
   ],
