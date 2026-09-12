@@ -1,7 +1,8 @@
 {
   "name": "@claw0gang/antigravity",
   "version": "0.2.6",
-  "description": "OpenClaw AgentHarnessV2 runtime for Google Antigravity CLI",
+  "description": "OpenClaw native agent runtime for Google Antigravity CLI, with a compatibility CLI backend",
+  "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -20,11 +21,18 @@
   "engines": {
     "node": ">=22.12.0"
   },
+  "keywords": [
+    "openclaw",
+    "google-antigravity",
+    "agy",
+    "agent-harness",
+    "plugin"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/claw0gang/antigravity-plugin.git"
   },
-  "homepage": "https://github.com/claw0gang/antigravity-plugin",
+  "homepage": "https://github.com/claw0gang/antigravity-plugin#readme",
   "openclaw": {
     "extensions": [
       "./src/index.ts"
