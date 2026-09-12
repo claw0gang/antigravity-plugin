@@ -268,6 +268,26 @@ If the plugin does not load, first check the OpenClaw/Gateway versions and plugi
 
 For runtime attribution problems, inspect OpenClaw's reported provider/model and terminal result. ANTIGRAVITY reports the exact resolved AGY model used for the native turn.
 
+## Comparison with Claude CLI and Codex
+
+The table below is a high-level OpenClaw integration comparison for the current `2026.9.x` generation. Bundled integration surfaces can evolve independently of ANTIGRAVITY releases.
+
+| Capability | ANTIGRAVITY | `claude-cli` | Codex |
+| --- | --- | --- | --- |
+| Runtime type | **Native plugin harness** + compatibility CLI backend | Bundled **CLI backend** | Full native app-server harness |
+| External agent owns loop | AGY | Claude Code | Codex app-server |
+| Native session resume | Yes, exact AGY conversation binding | Yes, Claude session IDs / warm subprocess | Yes, full native thread lifecycle |
+| Live model discovery | **Yes, from AGY** | Mostly provider/backend-defined | OpenAI/Codex-owned routing |
+| Native tools | **Yes, AGY tools** | Yes, Claude Code tools | Yes, Codex shell/patch/MCP/apps |
+| Tool observation | Terminal outcomes into OpenClaw | Mature CLI/tool integration | Deep hook/trajectory integration |
+| OpenClaw dynamic tools | Not Codex-style integrated | Can expose selected tools through MCP/grants | **Fully supported** |
+| Fine-grained approval bridge | Limited; AGY permission mode | Strong Bash/exec allowlist integration | **Strongest**: native approvals + OpenClaw approval routing |
+| Session supervision/catalog | No dedicated AGY catalog | Claude session catalog/adoption exists | **Very advanced**: catalog, supervision, branch/resume/steer |
+| Native plugins/apps | No | Claude ecosystem behavior | Codex native plugins/apps |
+| Computer Use integration | No dedicated integration | Not equivalent | Dedicated Codex integration |
+
+ANTIGRAVITY's current strength is the native runtime foundation: authoritative live AGY models, exact model identity, session-safe resume, AGY-native tools, image input, and fail-closed execution. Its remaining gap versus the deeper bundled integrations is primarily OpenClaw↔AGY control-plane integration: dynamic-tool projection, fine-grained approvals, richer supervision/steering, and specialized host integrations.
+
 ## Release and provenance
 
 Version-specific changes are summarized in [`RELEASE-NOTES.md`](./RELEASE-NOTES.md). [`EXPORT-MANIFEST.json`](./EXPORT-MANIFEST.json) records the canonical source commit, runtime source-tree identity, validation baseline, export contents, and artifact state for this public source snapshot.
