@@ -1,6 +1,6 @@
 {
   "id": "antigravity",
-  "name": "Antigravity",
+  "name": "antigravity-plugin",
   "description": "Independent third-party OpenClaw runtime bridge for the separately installed Google Antigravity CLI (agy); not affiliated with Google or OpenClaw.",
   "providers": [
     "antigravity"
