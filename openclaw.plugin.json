@@ -1,7 +1,7 @@
 {
   "id": "antigravity",
   "name": "Antigravity",
-  "description": "Run Google Antigravity CLI through OpenClaw.",
+  "description": "Use Google Antigravity CLI (agy) as an OpenClaw native agent runtime, with a compatibility CLI backend.",
   "providers": [
     "antigravity"
   ],
@@ -35,38 +35,42 @@
       "command": {
         "type": "string",
         "minLength": 1,
-        "description": "Antigravity CLI command. Defaults to agy on PATH."
+        "description": "Google Antigravity CLI executable name or path. Defaults to agy on PATH."
       },
       "printTimeout": {
         "type": "string",
         "minLength": 1,
-        "description": "Value passed to agy --print-timeout."
+        "description": "Value passed to AGY as --print-timeout. Defaults to 30m."
       },
       "sandbox": {
         "type": "boolean",
-        "description": "Pass --sandbox to agy."
+        "description": "Pass --sandbox to AGY. Enabled by default."
       },
       "dangerouslySkipPermissions": {
         "type": "boolean",
-        "description": "Explicitly pass --dangerously-skip-permissions to AGY headless execution for both the native harness and compatibility CLI, requesting always-proceed permission mode for native tools. Disabled by default; use only for intentionally unrestricted execution."
+        "description": "Explicitly pass --dangerously-skip-permissions to AGY for native and compatibility execution. Disabled by default; enable only for intentionally unrestricted native-tool execution."
       },
       "mode": {
         "type": "string",
         "enum": [
           "accept-edits",
           "plan"
-        ]
+        ],
+        "description": "Optional AGY execution mode."
       },
       "agent": {
         "type": "string",
-        "minLength": 1
+        "minLength": 1,
+        "description": "Optional AGY agent selector."
       },
       "project": {
         "type": "string",
-        "minLength": 1
+        "minLength": 1,
+        "description": "Use a specific AGY project for fresh conversations. Mutually exclusive with newProject=true."
       },
       "newProject": {
-        "type": "boolean"
+        "type": "boolean",
+        "description": "Start each fresh OpenClaw conversation in a new AGY project. Defaults to false and is mutually exclusive with project."
       },
       "addDirs": {
         "type": "array",
@@ -74,11 +78,13 @@
           "type": "string",
           "minLength": 1
         },
-        "uniqueItems": true
+        "uniqueItems": true,
+        "description": "Additional directories exposed to AGY with repeated --add-dir arguments."
       },
       "logFile": {
         "type": "string",
-        "minLength": 1
+        "minLength": 1,
+        "description": "Optional AGY log file path passed with --log-file."
       }
     }
   },
