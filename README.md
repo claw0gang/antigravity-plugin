@@ -1,4 +1,4 @@
-# ANTIGRAVITY for OpenClaw
+# antigravity-plugin for OpenClaw
 
 > **Independent project and upstream service terms**
 >
@@ -8,7 +8,7 @@
 >
 > See [Google Antigravity Additional Terms](https://antigravity.google/terms), the [Google Antigravity FAQ](https://antigravity.google/docs/faq/), and this repository's [`NOTICE.md`](./NOTICE.md).
 
-ANTIGRAVITY connects [OpenClaw](https://github.com/openclaw/openclaw) to the Google Antigravity CLI (`agy`) as a native agent runtime.
+antigravity-plugin connects [OpenClaw](https://github.com/openclaw/openclaw) to the Google Antigravity CLI (`agy`) as a native agent runtime.
 
 It lets OpenClaw select AGY models, run agent turns through AGY's native stream protocol, observe AGY-native tool execution, and resume the exact AGY conversation associated with an OpenClaw session. A separate compatibility CLI backend is also included for legacy/direct CLI routing.
 
@@ -29,7 +29,7 @@ It lets OpenClaw select AGY models, run agent turns through AGY's native stream 
 | External runtime | Google Antigravity CLI (`agy`) |
 | Current source version | `0.2.6` |
 
-ANTIGRAVITY does **not** implement its own model API transport. OpenClaw launches the configured `agy` executable locally, and AGY remains responsible for its own authentication, upstream service access, model availability, and native tools.
+antigravity-plugin does **not** implement its own model API transport. OpenClaw launches the configured `agy` executable locally, and AGY remains responsible for its own authentication, upstream service access, model availability, and native tools.
 
 ## Requirements and compatibility
 
@@ -53,7 +53,7 @@ When the package is available on ClawHub, install it explicitly from that source
 openclaw plugins install clawhub:@claw0gang/antigravity
 ```
 
-ANTIGRAVITY is disabled by default. Enable the plugin explicitly and configure an `antigravity/*` model to use the native harness.
+antigravity-plugin is disabled by default. Enable the plugin explicitly and configure an `antigravity/*` model to use the native harness.
 
 To check whether a public package is currently available, use OpenClaw's normal plugin search:
 
@@ -117,10 +117,10 @@ Unknown configuration keys are rejected rather than ignored.
 
 For the native `antigravity/*` path:
 
-1. OpenClaw selects an ANTIGRAVITY model and invokes the `antigravity` AgentHarnessV2 runtime.
-2. ANTIGRAVITY runs `agy models` and requires the requested concrete model to exist in the live AGY inventory.
+1. OpenClaw selects an antigravity-plugin model and invokes the `antigravity` AgentHarnessV2 runtime.
+2. antigravity-plugin runs `agy models` and requires the requested concrete model to exist in the live AGY inventory.
 3. The plugin starts `agy` directly with `shell: false`, `--output-format stream-json`, the selected model, and the configured execution options.
-4. AGY emits its conversation identity and stream events. ANTIGRAVITY binds that AGY conversation to the current OpenClaw session before accepting runtime activity.
+4. AGY emits its conversation identity and stream events. antigravity-plugin binds that AGY conversation to the current OpenClaw session before accepting runtime activity.
 5. Assistant output, usage, native-tool terminal observations, and the exact runtime model identity are returned through OpenClaw's native harness contract.
 
 The compatibility namespace `antigravity-cli/*` uses OpenClaw's generic CLI-backend contract instead. It is retained for compatibility; the native `antigravity/*` path is the primary integration.
@@ -145,7 +145,7 @@ If the expected model is absent, compare it with AGY directly:
 agy models
 ```
 
-On the `2026.9.4` validation baseline, OpenClaw's global `models list --provider ... --refresh` behavior does not necessarily force provider-scoped live discovery for an installed native provider that is outside the configured discovery scope. Provider-scoped catalog surfaces can request ANTIGRAVITY's live catalog directly.
+On the `2026.9.4` validation baseline, OpenClaw's global `models list --provider ... --refresh` behavior does not necessarily force provider-scoped live discovery for an installed native provider that is outside the configured discovery scope. Provider-scoped catalog surfaces can request antigravity-plugin's live catalog directly.
 
 ### Effort-qualified model IDs
 
@@ -157,7 +157,7 @@ antigravity/gemini-3.8-flash-medium
 antigravity/gemini-3.8-flash-high
 ```
 
-ANTIGRAVITY treats each concrete ID as an exact selection. OpenClaw thinking defaults do not silently replace one effort-qualified AGY model with a sibling.
+antigravity-plugin treats each concrete ID as an exact selection. OpenClaw thinking defaults do not silently replace one effort-qualified AGY model with a sibling.
 
 The plugin also normalizes these convenience aliases to canonical AGY IDs:
 
@@ -173,7 +173,7 @@ The `antigravity-cli/*` compatibility backend carries a static compatibility cat
 
 OpenClaw session identity and AGY conversation identity are intentionally separate.
 
-On the first native turn, ANTIGRAVITY starts AGY without `--conversation`. After AGY emits its conversation ID, the plugin stores a session binding containing the OpenClaw session identity, AGY conversation ID, and exact resolved model ID.
+On the first native turn, antigravity-plugin starts AGY without `--conversation`. After AGY emits its conversation ID, the plugin stores a session binding containing the OpenClaw session identity, AGY conversation ID, and exact resolved model ID.
 
 Later turns resume only that bound conversation:
 
@@ -181,13 +181,13 @@ Later turns resume only that bound conversation:
 --conversation <bound-conversation-id>
 ```
 
-ANTIGRAVITY does not use AGY `--continue` for native resume.
+antigravity-plugin does not use AGY `--continue` for native resume.
 
 Resume is fail-closed: a missing canonical model binding, a model mismatch, an unexpected AGY conversation ID, an ambiguous OpenClaw session entry, or a conflicting existing binding is treated as an error. To switch the concrete model, start a new compatible OpenClaw session lifecycle rather than reusing a conversation bound to another model.
 
 ## Native tools
 
-AGY owns and executes its native tools. ANTIGRAVITY forwards completed native-tool outcomes into OpenClaw's host-owned terminal observation contract.
+AGY owns and executes its native tools. antigravity-plugin forwards completed native-tool outcomes into OpenClaw's host-owned terminal observation contract.
 
 Until AGY provides trusted per-tool mutation classification, every completed native tool is treated conservatively as potentially mutating and replay-unsafe. This prevents OpenClaw from assuming that a completed tool can safely be replayed after an interruption.
 
@@ -212,7 +212,7 @@ Use it only when you intentionally want AGY native tools to proceed without the 
 
 ## Fail-closed behavior
 
-ANTIGRAVITY is designed to reject inconsistent or unsafe execution state rather than recover by guessing. In particular, native execution fails on conditions such as:
+antigravity-plugin is designed to reject inconsistent or unsafe execution state rather than recover by guessing. In particular, native execution fails on conditions such as:
 
 - requested model absent from the live AGY inventory;
 - invalid or conflicting session bindings;
@@ -237,7 +237,7 @@ Images are written to private (`0600`) attempt-scoped temporary files, passed to
 
 ## Security and data boundaries
 
-ANTIGRAVITY launches the configured AGY executable directly with `shell: false`.
+antigravity-plugin launches the configured AGY executable directly with `shell: false`.
 
 The plugin does not ship Google credentials, API keys, account data, host-specific configuration, or AGY authentication material. AGY remains responsible for its own authentication and for upstream data handling.
 
@@ -245,13 +245,13 @@ Content supplied to AGY may include prompts, images, file contents, paths, tool 
 
 Do not process confidential, personal, regulated, or otherwise sensitive information unless the applicable upstream terms, privacy controls, administrator policies, and your own obligations permit it. See [`NOTICE.md`](./NOTICE.md) for the consolidated service, privacy, trademark, and execution notice.
 
-OpenClaw may ask the provider for a synthetic authentication marker during cold discovery. For ANTIGRAVITY, successful bounded AGY model discovery is the readiness proof; the returned marker is control-plane metadata only. It is not an HTTP credential and is never sent to AGY.
+OpenClaw may ask the provider for a synthetic authentication marker during cold discovery. For antigravity-plugin, successful bounded AGY model discovery is the readiness proof; the returned marker is control-plane metadata only. It is not an HTTP credential and is never sent to AGY.
 
 Review `addDirs`, `project`, `logFile`, and especially `dangerouslySkipPermissions` before enabling the plugin in a shared or sensitive environment.
 
 ## Intentional limitations
 
-ANTIGRAVITY intentionally does not provide:
+antigravity-plugin intentionally does not provide:
 
 - a direct Google or model-provider HTTP client;
 - bundled AGY credentials or account provisioning;
@@ -272,7 +272,7 @@ After installation and configuration, these checks isolate the most common probl
 | --- | --- |
 | AGY is installed and an authorized access route is configured | `agy models` (subject to applicable Google terms) |
 | Plugin runtime registrations loaded | `openclaw plugins inspect antigravity --runtime --json` |
-| OpenClaw catalog contains ANTIGRAVITY models | `openclaw models list --all --provider antigravity` |
+| OpenClaw catalog contains antigravity-plugin models | `openclaw models list --all --provider antigravity` |
 | Plugin API compatibility | Confirm OpenClaw satisfies `>=2026.9.2 <2027.0.0` |
 | Gateway compatibility | Confirm the Gateway satisfies `>=2026.9.2` |
 | Fresh project isolation | Set `newProject: true` |
@@ -280,13 +280,13 @@ After installation and configuration, these checks isolate the most common probl
 
 If the plugin does not load, first check the OpenClaw/Gateway versions and plugin configuration. If no native models appear, run `agy models` under the same OS user that runs OpenClaw. If a new session unexpectedly inherits AGY project context, enable `newProject` or configure an explicit `project`.
 
-For runtime attribution problems, inspect OpenClaw's reported provider/model and terminal result. ANTIGRAVITY reports the exact resolved AGY model used for the native turn.
+For runtime attribution problems, inspect OpenClaw's reported provider/model and terminal result. antigravity-plugin reports the exact resolved AGY model used for the native turn.
 
 ## Comparison with Claude CLI and Codex
 
-The table below is a high-level OpenClaw integration comparison for the current `2026.9.x` generation. Bundled integration surfaces can evolve independently of ANTIGRAVITY releases.
+The table below is a high-level OpenClaw integration comparison for the current `2026.9.x` generation. Bundled integration surfaces can evolve independently of antigravity-plugin releases.
 
-| Capability | ANTIGRAVITY | `claude-cli` | Codex |
+| Capability | antigravity-plugin | `claude-cli` | Codex |
 | --- | --- | --- | --- |
 | Runtime type | **Native plugin harness** + compatibility CLI backend | Bundled **CLI backend** | Full native app-server harness |
 | External agent owns loop | AGY | Claude Code | Codex app-server |
@@ -300,7 +300,7 @@ The table below is a high-level OpenClaw integration comparison for the current 
 | Native plugins/apps | No | Claude ecosystem behavior | Codex native plugins/apps |
 | Computer Use integration | No dedicated integration | Not equivalent | Dedicated Codex integration |
 
-ANTIGRAVITY's current strength is the native runtime foundation: authoritative live AGY models, exact model identity, session-safe resume, AGY-native tools, image input, and fail-closed execution. Its remaining gap versus the deeper bundled integrations is primarily OpenClaw↔AGY control-plane integration: dynamic-tool projection, fine-grained approvals, richer supervision/steering, and specialized host integrations.
+antigravity-plugin's current strength is the native runtime foundation: authoritative live AGY models, exact model identity, session-safe resume, AGY-native tools, image input, and fail-closed execution. Its remaining gap versus the deeper bundled integrations is primarily OpenClaw↔AGY control-plane integration: dynamic-tool projection, fine-grained approvals, richer supervision/steering, and specialized host integrations.
 
 ## Release and provenance
 
@@ -310,6 +310,6 @@ The public mirror deliberately excludes internal governance records, development
 
 ## License
 
-ANTIGRAVITY is released under the [MIT License](./LICENSE). You may use, copy, modify, merge, publish, distribute, sublicense, and sell the software subject to the license notice and disclaimer. Third-party trademark, service, and upstream-software rights are not granted by the MIT license; see [`NOTICE.md`](./NOTICE.md).
+antigravity-plugin is released under the [MIT License](./LICENSE). You may use, copy, modify, merge, publish, distribute, sublicense, and sell the software subject to the license notice and disclaimer. Third-party trademark, service, and upstream-software rights are not granted by the MIT license; see [`NOTICE.md`](./NOTICE.md).
 
 > ⭐ **Made it this far?** You can use it, change it, ship it, or let your agent spectacularly break it. If it survives, giving the repo a star is considered excellent incident-response etiquette. *(Still optional. MIT remains MIT.)*
