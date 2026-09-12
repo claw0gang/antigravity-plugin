@@ -4,6 +4,8 @@ ANTIGRAVITY connects [OpenClaw](https://github.com/openclaw/openclaw) to the Goo
 
 It lets OpenClaw select AGY models, run agent turns through AGY's native stream protocol, observe AGY-native tool execution, and resume the exact AGY conversation associated with an OpenClaw session. A separate compatibility CLI backend is also included for legacy/direct CLI routing.
 
+> ⭐ **One tiny request:** use it, change it, fork it, or ask your agent to break it — just give the repo a star first. *(The star is appreciated, not required by the MIT license.)*
+
 > **Public release mirror**
 >
 > This repository contains the public plugin source and release-facing documentation for `@claw0gang/antigravity`. Development, validation, and release governance are maintained separately. Runtime source provenance is recorded in [`EXPORT-MANIFEST.json`](./EXPORT-MANIFEST.json).
@@ -274,4 +276,6 @@ The public mirror deliberately excludes internal governance records, development
 
 ## License
 
-No software license is currently declared in this public mirror. A license choice is a maintainer decision and is not inferred by this documentation pass.
+ANTIGRAVITY is released under the [MIT License](./LICENSE). You may use, copy, modify, merge, publish, distribute, sublicense, and sell the software subject to the license notice and disclaimer.
+
+> ⭐ **Made it this far?** You can use it, change it, ship it, or let your agent spectacularly break it. If it survives, giving the repo a star is considered excellent incident-response etiquette. *(Still optional. MIT remains MIT.)*

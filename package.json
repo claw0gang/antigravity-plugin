@@ -2,6 +2,7 @@
   "name": "@claw0gang/antigravity",
   "version": "0.2.6",
   "description": "OpenClaw native agent runtime for Google Antigravity CLI, with a compatibility CLI backend",
+  "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
