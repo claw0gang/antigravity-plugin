@@ -1,6 +1,6 @@
-# ANTIGRAVITY 0.2.6 release notes
+# antigravity-plugin 0.2.6 release notes
 
-ANTIGRAVITY `0.2.6` updates the public OpenClaw plugin contract for the current `2026.9.x` release line while preserving the existing native Google Antigravity CLI (`agy`) execution architecture.
+antigravity-plugin `0.2.6` updates the public OpenClaw plugin contract for the current `2026.9.x` release line while preserving the existing native Google Antigravity CLI (`agy`) execution architecture.
 
 > **Independent project and upstream service notice:** This is an independent third-party integration and is not affiliated with, sponsored by, or endorsed by Google or OpenClaw. Google's current individual Antigravity terms and FAQ state that third-party access through OpenClaw with an Antigravity login/OAuth is prohibited and may result in suspension or termination. Enterprise/Google Cloud routes may be governed by separate terms. See [`NOTICE.md`](./NOTICE.md) and verify the terms applicable to your access route before use.
 
