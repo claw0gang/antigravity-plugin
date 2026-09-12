@@ -18,6 +18,7 @@
   },
   "included": [
     "README.md",
+    "NOTICE.md",
     "RELEASE-NOTES.md",
     "package.json",
     "openclaw.plugin.json",
@@ -41,7 +42,8 @@
     "dist/**",
     "src/**",
     "openclaw.plugin.json",
-    "README.md"
+    "README.md",
+    "NOTICE.md"
   ],
   "runtimeInvariant": "Every src/** Git blob is byte-identical to canonical commit bf6ddab1222ac5b93de9f0576c8ff6e0cec5c17c.",
   "artifact": null
