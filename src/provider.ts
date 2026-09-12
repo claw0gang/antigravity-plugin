@@ -14,6 +14,7 @@ import { deriveAgyNativeModelCapabilities } from "./harness/model-capabilities.j
 import { normalizeAntigravityModelId } from "./model-aliases.js";
 
 export const ANTIGRAVITY_PROVIDER_ID = "antigravity";
+export const ANTIGRAVITY_NATIVE_AUTH_MARKER = "openclaw:antigravity-native-auth";
 
 // OpenClaw uses the same 200k structural fallback for models whose real
 // selection/runtime metadata is owned by a native harness. These fields satisfy
@@ -36,6 +37,12 @@ type ProviderCatalogProviderConfig = Extract<
   { provider: unknown }
 >["provider"];
 
+type AntigravitySyntheticAuth = {
+  apiKey: string;
+  source: string;
+  mode: "oauth";
+};
+
 export type CreateAntigravityProviderOptions = {
   pluginConfig: AntigravityPluginConfig;
   discoverModels?: AgyModelDiscovery;
@@ -50,6 +57,35 @@ function discoverConfiguredModels(
     command: options.pluginConfig.command,
     ...(timeoutMs !== undefined ? { timeoutMs } : {}),
   });
+}
+
+/**
+ * OpenClaw 2026.9.4 can probe plugin-owned synthetic auth during cold discovery
+ * for provider ids already in the active discovery scope. AGY owns its own native
+ * authentication, so successful bounded model discovery is the readiness proof.
+ * The returned marker is control-plane only: ANTIGRAVITY has no OpenClaw network
+ * transport and never sends it to AGY.
+ */
+export async function prepareAntigravitySyntheticAuth(
+  options: CreateAntigravityProviderOptions,
+  params: { provider: string; signal?: AbortSignal },
+): Promise<AntigravitySyntheticAuth | undefined> {
+  params.signal?.throwIfAborted();
+  if (params.provider !== ANTIGRAVITY_PROVIDER_ID) {
+    return undefined;
+  }
+  try {
+    await discoverConfiguredModels(options);
+    params.signal?.throwIfAborted();
+    return {
+      apiKey: ANTIGRAVITY_NATIVE_AUTH_MARKER,
+      source: "Google Antigravity CLI native auth",
+      mode: "oauth",
+    };
+  } catch {
+    params.signal?.throwIfAborted();
+    return undefined;
+  }
 }
 
 /**
@@ -104,6 +140,13 @@ export function createAntigravityProvider(
     id: ANTIGRAVITY_PROVIDER_ID,
     label: "Google Antigravity native runtime",
     auth: [],
+
+    prepareSyntheticAuth(ctx) {
+      return prepareAntigravitySyntheticAuth(options, {
+        provider: ctx.provider,
+        ...(ctx.signal !== undefined ? { signal: ctx.signal } : {}),
+      });
+    },
 
     catalog: {
       order: "simple",

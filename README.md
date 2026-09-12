@@ -11,7 +11,7 @@ This repository is the **public release mirror** for the ClawHub package `@claw0
 - Node.js `>=22.12.0`
 - Google Antigravity CLI installed, authenticated, and available as `agy` on `PATH` unless `command` is configured explicitly
 
-The package is built against OpenClaw `2026.9.3` as build provenance. Runtime compatibility is governed by the compatibility range above rather than exact host patch equality.
+The package is built against OpenClaw `2026.9.4` as exact build provenance. Runtime compatibility is governed by the compatibility range above rather than exact host patch equality. The current release-validation baseline is OpenClaw `2026.9.4` with AGY `1.2.1`.
 
 ## Install from ClawHub
 
@@ -73,11 +73,15 @@ ANTIGRAVITY is disabled by default. Enable it explicitly in your OpenClaw config
 
 ## Models
 
-The native `antigravity/*` provider discovers the currently available AGY models at runtime. To inspect what OpenClaw currently sees:
+The native `antigravity/*` provider has no executable static model rows. It discovers the currently available AGY models through OpenClaw's provider-scoped live catalog path and validates the requested concrete model again before execution.
+
+To inspect the currently published/cached OpenClaw catalog for the provider, use:
 
 ```bash
 openclaw models list --all --provider antigravity
 ```
+
+On OpenClaw `2026.9.4`, `models list --provider ... --refresh` performs global provider acquisition and filters the published result afterward; it does not by itself force live discovery for an installed native provider that is not already in OpenClaw's configured discovery scope. Provider-scoped model-catalog surfaces can request live ANTIGRAVITY discovery directly. If a model is unexpectedly absent, also run `agy models` under the same user to confirm the upstream AGY inventory.
 
 Effort-qualified AGY model IDs are exact executable identities. For example, selecting:
 
@@ -119,6 +123,8 @@ Malformed base64 and unsupported MIME types fail before AGY execution.
 
 ANTIGRAVITY launches the configured AGY executable directly with `shell: false`. It does not ship credentials, API keys, account data, host-specific configuration, or AGY authentication material.
 
+The OpenClaw synthetic-auth value used for cold discovery is a control-plane readiness marker only. It is not an HTTP credential and is never sent to AGY.
+
 Your AGY installation and account remain responsible for upstream authentication and for any data handled by AGY itself. Review `addDirs`, `project`, `logFile`, and especially `dangerouslySkipPermissions` before enabling them in a shared or sensitive environment.
 
 ## Troubleshooting
@@ -127,7 +133,7 @@ If the plugin does not load, confirm your OpenClaw version satisfies the declare
 
 If a new session unexpectedly sees context from an existing AGY project, use `newProject: true` for fresh project isolation or set `project` explicitly. Session resume itself remains bound to the exact AGY conversation created for that OpenClaw session.
 
-For exact runtime attribution, inspect OpenClaw's reported provider/model and terminal receipt. The plugin also attributes assistant output to the exact AGY model used for the turn.
+For exact runtime attribution, inspect OpenClaw's reported provider/model and terminal receipt. The plugin attributes assistant output to the exact AGY model used for the turn and fails closed on model/session inconsistencies.
 
 ## Update or remove
 

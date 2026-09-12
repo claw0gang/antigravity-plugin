@@ -6,6 +6,9 @@
     "antigravity"
   ],
   "providerCatalogEntry": "./dist/provider-discovery.js",
+  "syntheticAuthRefs": [
+    "antigravity"
+  ],
   "cliBackends": [
     "antigravity-cli"
   ],
@@ -175,7 +178,7 @@
       }
     },
     "discovery": {
-      "antigravity": "runtime",
+      "antigravity": "refreshable",
       "antigravity-cli": "static"
     },
     "runtimeAugment": true

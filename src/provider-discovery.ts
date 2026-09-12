@@ -8,6 +8,7 @@ import {
 import {
   ANTIGRAVITY_PROVIDER_ID,
   buildAntigravityProviderCatalog,
+  prepareAntigravitySyntheticAuth,
 } from "./provider.js";
 
 type AgyModelDiscovery = (params?: {
@@ -26,7 +27,7 @@ type OpenClawConfigProjection = {
 };
 
 function resolveDiscoveryPluginConfig(config: unknown) {
-  const projected = config as OpenClawConfigProjection;
+  const projected = (config ?? {}) as OpenClawConfigProjection;
   return resolveAntigravityPluginConfig(
     projected.plugins?.entries?.[ANTIGRAVITY_PROVIDER_ID]?.config,
   );
@@ -41,6 +42,16 @@ export function createAntigravityProviderDiscovery(
     id: ANTIGRAVITY_PROVIDER_ID,
     label: "Google Antigravity native runtime",
     auth: [],
+    async prepareSyntheticAuth(ctx) {
+      const pluginConfig = resolveDiscoveryPluginConfig(ctx.config);
+      return await prepareAntigravitySyntheticAuth(
+        { pluginConfig, discoverModels },
+        {
+          provider: ctx.provider,
+          ...(ctx.signal !== undefined ? { signal: ctx.signal } : {}),
+        },
+      );
+    },
     catalog: {
       order: "simple",
       async run(ctx) {
