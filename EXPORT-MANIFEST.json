@@ -14,7 +14,6 @@
   },
   "export": {
     "repository": "claw0gang/antigravity-plugin",
-    "branch": "candidate/p01t011-v0.2.6-final",
     "policy": "runtime-source-byte-identical; public packaging and documentation sanitized"
   },
   "included": [
@@ -35,7 +34,7 @@
     "examples/**",
     "internal handovers",
     "governance records",
-    "Tokyo/production operational evidence",
+    "production operational evidence",
     "development-only artifacts"
   ],
   "packageFiles": [
