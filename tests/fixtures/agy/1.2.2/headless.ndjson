@@ -1,0 +1,9 @@
+{"event":"init","conversation_id":"synthetic-1.2.2","init":{"cwd":"/fixture/work","tools":["run_command"],"permission_mode":"request-review","model":"fixture/vendor:future-model+high"},"fixture_additive_metadata":{"future":true}}
+{"event":"step_update","step_update":{"conversation_id":"synthetic-1.2.2","step_index":0,"state":"DONE","step_type":"user_input"}}
+{"event":"step_update","step_update":{"conversation_id":"synthetic-1.2.2","step_index":1,"state":"ACTIVE","step_type":"tool","tool_name":"run_command","tool_info":{"name":"run_command","parameters":{"CommandLine":"fixture-only"}}}}
+{"event":"step_update","step_update":{"conversation_id":"synthetic-1.2.2","step_index":1,"state":"DONE","step_type":"tool","tool_name":"run_command","tool_info":{"name":"run_command","output":"marker observed"}}}
+{"event":"step_update","step_update":{"conversation_id":"synthetic-1.2.2","step_index":2,"state":"ACTIVE","step_type":"agent_response","text_delta":"fixture "}}
+{"event":"step_update","step_update":{"conversation_id":"synthetic-1.2.2","step_index":2,"state":"ACTIVE","step_type":"agent_response","text_delta":"✓"}}
+{"event":"step_update","step_update":{"conversation_id":"synthetic-1.2.2","step_index":2,"state":"DONE","step_type":"agent_response","text_delta":"\n","usage":{"input_tokens":10,"output_tokens":4,"thinking_tokens":0,"cache_read_tokens":0,"total_tokens":14}}}
+{"event":"step_update","step_update":{"conversation_id":"synthetic-1.2.2","step_index":3,"state":"DONE","step_type":"checkpoint"}}
+{"event":"result","result":{"conversation_id":"synthetic-1.2.2","status":"SUCCESS","response":"fixture ✓\n","duration_seconds":1.2,"num_turns":1,"usage":{"input_tokens":10,"output_tokens":4,"thinking_tokens":0,"cache_read_tokens":0,"total_tokens":14},"fixture_additive_metadata":{"future":true}}}

@@ -1,68 +1,43 @@
-import type { ProviderPlugin } from "openclaw/plugin-sdk/plugin-entry";
+import type { ProviderPlugin } from "./host/types.js";
 
 import { resolveAntigravityPluginConfig } from "./config.js";
-import {
-  discoverAgyModels,
-  type AgyDiscoveredModel,
-} from "./harness/model-catalog.js";
+import { AgyHostInventoryOwner, type AgyHostInventoryOptions } from "./inventory-scope.js";
 import {
   ANTIGRAVITY_PROVIDER_ID,
   buildAntigravityProviderCatalog,
   prepareAntigravitySyntheticAuth,
 } from "./provider.js";
 
-type AgyModelDiscovery = (params?: {
-  command?: string;
-  timeoutMs?: number;
-}) => Promise<AgyDiscoveredModel[]>;
+export type CreateAntigravityProviderDiscoveryOptions = Pick<
+  AgyHostInventoryOptions, "discoverModels" | "inventory" | "inventoryOwner"
+>;
 
-export type CreateAntigravityProviderDiscoveryOptions = {
-  discoverModels?: AgyModelDiscovery;
-};
-
-type OpenClawConfigProjection = {
-  plugins?: {
-    entries?: Record<string, { config?: unknown }>;
-  };
-};
-
-function resolveDiscoveryPluginConfig(config: unknown) {
-  const projected = (config ?? {}) as OpenClawConfigProjection;
-  return resolveAntigravityPluginConfig(
-    projected.plugins?.entries?.[ANTIGRAVITY_PROVIDER_ID]?.config,
-  );
-}
-
-/** Lightweight provider descriptor used by OpenClaw catalog discovery before full runtime load. */
+/**
+ * Lightweight loaders have their own bounded process owner. They use the same
+ * acquisition/projection service as full registration, without cross-process
+ * cache claims or any independent background refresh.
+ */
 export function createAntigravityProviderDiscovery(
   options: CreateAntigravityProviderDiscoveryOptions = {},
 ): ProviderPlugin {
-  const discoverModels = options.discoverModels ?? discoverAgyModels;
+  const pluginConfig = resolveAntigravityPluginConfig(undefined);
+  const inventoryOwner = options.inventoryOwner ?? new AgyHostInventoryOwner({ ...options, pluginConfig });
+  const sharedOptions = { ...options, pluginConfig, inventoryOwner };
   return {
     id: ANTIGRAVITY_PROVIDER_ID,
     label: "Google Antigravity native runtime",
     auth: [],
-    async prepareSyntheticAuth(ctx) {
-      const pluginConfig = resolveDiscoveryPluginConfig(ctx.config);
-      return await prepareAntigravitySyntheticAuth(
-        { pluginConfig, discoverModels },
-        {
-          provider: ctx.provider,
-          ...(ctx.signal !== undefined ? { signal: ctx.signal } : {}),
-        },
-      );
+    prepareSyntheticAuth(ctx) {
+      return prepareAntigravitySyntheticAuth(sharedOptions, ctx);
     },
     catalog: {
       order: "simple",
       async run(ctx) {
-        const pluginConfig = resolveDiscoveryPluginConfig(ctx.config);
-        const models = await discoverModels({ command: pluginConfig.command });
+        const models = await inventoryOwner.models(ctx);
         return { provider: buildAntigravityProviderCatalog(models) };
       },
     },
   };
 }
 
-const antigravityProviderDiscovery = createAntigravityProviderDiscovery();
-
-export default antigravityProviderDiscovery;
+export default createAntigravityProviderDiscovery();

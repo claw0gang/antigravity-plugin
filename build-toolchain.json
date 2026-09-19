@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 2,
+  "node": ">=22.12.0",
+  "npm": "environment",
+  "openclawSdk": "2026.9.4"
+}

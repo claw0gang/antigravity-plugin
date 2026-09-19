@@ -1,0 +1,150 @@
+{
+  "schema": "antigravity-qualification/v1",
+  "task": "p02t007",
+  "expectedHostname": "T007_MUST_BIND_CANONICAL_HOSTNAME",
+  "governanceRevision": "72fb154bf4f375c3ddcca2031896151d19b275b2",
+  "hostGovernance": {
+    "repository": "T007_MUST_BIND/HOST_GOVERNANCE_REPOSITORY",
+    "revision": "0000000000000000000000000000000000000000",
+    "file": {
+      "path": "/T007_MUST_BIND/host-governance",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  },
+  "candidate": {
+    "sourceRevision": "0000000000000000000000000000000000000000",
+    "treeSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "packedTreeSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "tarball": {
+      "path": "/T007_MUST_BIND/antigravity.tgz",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    "export": {
+      "path": "/T007_MUST_BIND/public-export-manifest.json",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  },
+  "pluginRoot": "/T007_MUST_BIND/isolated-installed-package",
+  "openclawRoot": "/T007_MUST_BIND/openclaw",
+  "openclawVersion": "2026.9.4",
+  "openclawPackage": {
+    "path": "/T007_MUST_BIND/openclaw/package.json",
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "agy": {
+    "version": "T007_MUST_BIND_EXACT_VERSION_STDOUT",
+    "executable": {
+      "path": "/T007_MUST_BIND/agy",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    "versionArgv": [
+      "/T007_MUST_BIND/agy",
+      "--version"
+    ],
+    "helpArgv": [
+      "/T007_MUST_BIND/agy",
+      "--help"
+    ],
+    "helpSha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "configFiles": [
+    {
+      "path": "/T007_MUST_BIND/isolated-openclaw-config.json",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  ],
+  "fixtureFiles": [
+    {
+      "path": "/T007_MUST_BIND/native-version-fixture.json",
+      "version": "T007_MUST_BIND_EXACT_NATIVE_VERSION_AND_SCENARIO",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  ],
+  "authentication": {
+    "route": "T007_MUST_BIND_APPROVED_AUTHENTICATION_ROUTE",
+    "enforcement": "T007_MUST_BIND_ADAPTER_NATIVE_CALL_AND_SPEND_ENFORCEMENT",
+    "envNames": []
+  },
+  "budget": {
+    "maxCommands": 16,
+    "maxElapsedMs": 1800000,
+    "maxNativeCalls": 0,
+    "maxSpend": 0,
+    "currency": "USD"
+  },
+  "liveUnits": [
+    {
+      "id": "live-native-catalog",
+      "dependsOn": [],
+      "rows": [
+        "A16",
+        "A18"
+      ],
+      "scenario": "T007 must replace this example with its exact bounded native refresh/catalog churn scenario and decisive Gateway observations",
+      "authenticated": false,
+      "maxNativeCalls": 0,
+      "maxSpend": 0,
+      "timeoutMs": 30000,
+      "adapter": {
+        "path": "/T007_MUST_BIND/native-catalog-adapter.mjs",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "closure": [
+          {
+            "path": "/T007_MUST_BIND/native-catalog-adapter.mjs",
+            "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+          },
+          {
+            "path": "/T007_MUST_BIND/native-catalog-helpers.mjs",
+            "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+          }
+        ]
+      },
+      "argv": [
+        "/T007_MUST_BIND/runtime/bin/node",
+        "/T007_MUST_BIND/native-catalog-adapter.mjs",
+        "--expected-hostname",
+        "T007_MUST_BIND_CANONICAL_HOSTNAME"
+      ],
+      "assertions": [
+        {
+          "path": "gateway.afterAddition",
+          "equals": [
+            "T007_EXACT_MODEL_A",
+            "T007_EXACT_UNSEEN_MODEL_B"
+          ]
+        },
+        {
+          "path": "gateway.afterWithdrawal",
+          "equals": [
+            "T007_EXACT_UNSEEN_MODEL_B"
+          ]
+        },
+        {
+          "path": "gateway.afterEmpty",
+          "equals": []
+        }
+      ]
+    }
+  ],
+  "buildNode": {
+    "version": "v24.19.0",
+    "executable": {
+      "path": "/T007_MUST_BIND/build/bin/node",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  },
+  "buildNpm": {
+    "version": "11.9.0",
+    "cli": {
+      "path": "/T007_MUST_BIND/npm/bin/npm-cli.js",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  },
+  "runtimeNode": {
+    "version": "v22.12.0",
+    "executable": {
+      "path": "/T007_MUST_BIND/runtime/bin/node",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  }
+}

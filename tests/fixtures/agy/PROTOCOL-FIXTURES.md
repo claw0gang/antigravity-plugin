@@ -1,0 +1,9 @@
+# Protocol source fixtures
+
+The `1.1.28/headless.ndjson` and `1.2.2/headless.ndjson` files are **synthetic, documentation-derived source contract fixtures**. These directory names identify the accepted design's earliest/current qualification targets. They do not identify captured binaries or prove either version implements the contract. No AGY process, login, native inference, host installation, or native tool action produced these files. Model IDs and tool output are deliberately synthetic.
+
+Basis: accepted design `188f3f34c83e9da0b19f8afae93a9e31f2b526bb`, `docs/ARCHITECTURE.md` §§3–4; [public headless documentation](https://antigravity.google/docs/cli/headless/) observed 2026-09-12; version selection from the design's [pinned changelog](https://github.com/google-antigravity/antigravity-cli/blob/ba985e6b5de2ac8aa09860a154a102831eb7722b/CHANGELOG.md). Public documentation is a dated observation, not a historical binary snapshot.
+
+Both fixtures exercise one explicitly selected model acknowledgement, one conversation, stable step indexes, direct DONE, repeated ACTIVE, a single terminal per step, final DONE text, and one result. The current-target fixture additionally includes unknown harmless metadata. The source parser rejects unknown semantic event types, states and step categories because no source-qualified non-semantic diagnostic event is established; ordinary additive fields remain accepted. New exact model IDs need no parser release.
+
+The parser requires the explicit model acknowledgement and checks any expected exact model and resumed conversation. Those comparisons prove agreement with reported fields only. P03 still must establish whether the native field is effective identity rather than an echo. P02 still must capture and test real supported binaries, one-turn stdin/EOF semantics, diagnostic event distinctions and native timeout/denial behavior. Source fixture execution never fulfills those runtime qualification rows.

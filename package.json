@@ -1,48 +1,45 @@
 {
   "name": "@claw0gang/antigravity",
-  "version": "0.2.6",
-  "description": "Independent third-party OpenClaw runtime bridge for the separately installed Google Antigravity CLI (agy); not affiliated with Google or OpenClaw",
-  "license": "MIT",
+  "version": "0.3.0",
+  "description": "Independent third-party OpenClaw AgentHarnessV2 and CLI-backend integration for Google Antigravity CLI (agy)",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "files": [
     "dist",
-    "src",
     "openclaw.plugin.json",
     "README.md",
-    "NOTICE.md"
+    "LICENSE",
+    "NOTICE.md",
+    "RELEASE-NOTES.md",
+    "docs/BUILD.md",
+    "docs/QUALIFICATION.md"
   ],
   "scripts": {
-    "clean": "rm -rf dist",
-    "build": "tsc -p tsconfig.json",
-    "prepack": "npm run clean && npm run build",
-    "pack:check": "npm pack --dry-run"
+    "clean": "node tools/build-artifact.mjs --clean",
+    "build": "node tools/build-artifact.mjs",
+    "test": "node --import tsx --test --test-concurrency=1 tests/*.test.ts",
+    "test:source": "node --import tsx --import ./tests/source-sdk-loader.mjs --test --test-concurrency=1 tests/*.test.ts",
+    "test:build-tools": "node --test tests/build-export.test.mjs",
+    "check": "npm run build && npm test && npm run test:build-tools",
+    "prepack": "node tools/verify-artifact.mjs --quiet",
+    "pack:check": "node tools/check-package.mjs",
+    "export:public": "node tools/export-public.mjs",
+    "compat:check": "node tools/check-openclaw-compatibility.mjs",
+    "qualify": "node tools/qualification.mjs"
   },
   "engines": {
     "node": ">=22.12.0"
   },
-  "keywords": [
-    "openclaw",
-    "google-antigravity",
-    "agy",
-    "agent-harness",
-    "plugin"
-  ],
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/claw0gang/antigravity-plugin.git"
-  },
-  "homepage": "https://github.com/claw0gang/antigravity-plugin#readme",
   "openclaw": {
     "extensions": [
-      "./src/index.ts"
+      "./dist/index.js"
     ],
     "runtimeExtensions": [
       "./dist/index.js"
     ],
     "compat": {
-      "pluginApi": ">=2026.9.2 <2027.0.0",
+      "pluginApi": ">=2026.9.2",
       "minGatewayVersion": ">=2026.9.2"
     },
     "build": {
@@ -51,11 +48,32 @@
     }
   },
   "peerDependencies": {
-    "openclaw": ">=2026.9.2 <2027.0.0"
+    "openclaw": ">=2026.9.2"
   },
   "devDependencies": {
-    "@types/node": "^24.0.0",
+    "@types/node": "24.3.0",
     "openclaw": "2026.9.4",
-    "typescript": "^5.9.0"
+    "tsx": "4.20.5",
+    "typescript": "5.9.3"
+  },
+  "license": "MIT",
+  "keywords": [
+    "openclaw",
+    "google-antigravity",
+    "agy",
+    "agent-harness",
+    "cli-backend",
+    "plugin"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/claw0gang/antigravity-plugin.git"
+  },
+  "homepage": "https://github.com/claw0gang/antigravity-plugin#readme",
+  "bugs": {
+    "url": "https://github.com/claw0gang/antigravity-plugin/issues"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

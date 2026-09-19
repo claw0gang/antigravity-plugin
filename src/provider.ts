@@ -3,22 +3,19 @@ import type {
   ProviderPlugin,
   ProviderRuntimeModel,
   UnifiedModelCatalogProviderPlugin,
-} from "openclaw/plugin-sdk/plugin-entry";
+} from "./host/types.js";
 
-import type { AntigravityPluginConfig } from "./config.js";
-import {
-  discoverAgyModels,
-  type AgyDiscoveredModel,
-} from "./harness/model-catalog.js";
+import type { AgyDiscoveredModel } from "./harness/model-catalog.js";
+import { resolveAgyHostInventoryOwner, type AgyHostInventoryContext, type AgyHostInventoryOptions } from "./inventory-scope.js";
 import { deriveAgyNativeModelCapabilities } from "./harness/model-capabilities.js";
 import { normalizeAntigravityModelId } from "./model-aliases.js";
 
 export const ANTIGRAVITY_PROVIDER_ID = "antigravity";
 export const ANTIGRAVITY_NATIVE_AUTH_MARKER = "openclaw:antigravity-native-auth";
 
-// OpenClaw uses the same 200k structural fallback for models whose real
-// selection/runtime metadata is owned by a native harness. These fields satisfy
-// model admission only; ANTIGRAVITY never sends them to an HTTP route.
+// Required runtime fields use structural placeholders, never measured native
+// limits or pricing. Optional catalog limits are omitted; provenance is carried
+// in params. Installed-host interpretation remains a separate qualification.
 const NATIVE_MODEL_CONTEXT_TOKENS = 200_000;
 
 // OpenClaw 2026.9.x persists provider-catalog rows only when their provider
@@ -26,11 +23,6 @@ const NATIVE_MODEL_CONTEXT_TOKENS = 200_000;
 // structural catalog contract while remaining fail-closed if the native harness
 // were ever bypassed; it is never used for ANTIGRAVITY execution.
 const NATIVE_CATALOG_BASE_URL = "antigravity://native";
-
-type AgyModelDiscovery = (params?: {
-  command?: string;
-  timeoutMs?: number;
-}) => Promise<AgyDiscoveredModel[]>;
 
 type ProviderCatalogProviderConfig = Extract<
   ProviderCatalogResult,
@@ -41,23 +33,10 @@ type AntigravitySyntheticAuth = {
   apiKey: string;
   source: string;
   mode: "oauth";
+  expiresAt: number;
 };
 
-export type CreateAntigravityProviderOptions = {
-  pluginConfig: AntigravityPluginConfig;
-  discoverModels?: AgyModelDiscovery;
-};
-
-function discoverConfiguredModels(
-  options: CreateAntigravityProviderOptions,
-  timeoutMs?: number,
-): Promise<AgyDiscoveredModel[]> {
-  const discoverModels = options.discoverModels ?? discoverAgyModels;
-  return discoverModels({
-    command: options.pluginConfig.command,
-    ...(timeoutMs !== undefined ? { timeoutMs } : {}),
-  });
-}
+export type CreateAntigravityProviderOptions = AgyHostInventoryOptions;
 
 /**
  * OpenClaw 2026.9.4 can probe plugin-owned synthetic auth during cold discovery
@@ -68,19 +47,20 @@ function discoverConfiguredModels(
  */
 export async function prepareAntigravitySyntheticAuth(
   options: CreateAntigravityProviderOptions,
-  params: { provider: string; signal?: AbortSignal },
+  params: AgyHostInventoryContext & { provider: string },
 ): Promise<AntigravitySyntheticAuth | undefined> {
   params.signal?.throwIfAborted();
   if (params.provider !== ANTIGRAVITY_PROVIDER_ID) {
     return undefined;
   }
   try {
-    await discoverConfiguredModels(options);
+    await resolveAgyHostInventoryOwner(options).models(params);
     params.signal?.throwIfAborted();
     return {
       apiKey: ANTIGRAVITY_NATIVE_AUTH_MARKER,
       source: "Google Antigravity CLI native auth",
       mode: "oauth",
+      expiresAt: Date.now() + 60_000,
     };
   } catch {
     params.signal?.throwIfAborted();
@@ -105,10 +85,18 @@ export function buildAntigravityNativeRuntimeModel(
     baseUrl: "",
     api: "openai-responses",
     reasoning: capabilities.reasoning,
-    input: ["text", "image"],
+    input: ["text"],
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
     contextWindow: NATIVE_MODEL_CONTEXT_TOKENS,
     maxTokens: NATIVE_MODEL_CONTEXT_TOKENS,
+    params: { antigravityInventoryMetadata: {
+      source: "agy models --output-format json",
+      modalities: { certainty: "unknown", structuralInput: ["text"] },
+      reasoning: { certainty: "adapter-contract", adjustable: false },
+      contextWindow: { certainty: "unknown", structuralPlaceholder: NATIVE_MODEL_CONTEXT_TOKENS },
+      maxTokens: { certainty: "unknown", structuralPlaceholder: NATIVE_MODEL_CONTEXT_TOKENS },
+      pricing: { certainty: "unknown", structuralZeros: true, free: false },
+    } },
   };
 }
 
@@ -126,8 +114,8 @@ export function buildAntigravityProviderCatalog(
         reasoning: runtimeModel.reasoning,
         input: runtimeModel.input,
         cost: runtimeModel.cost,
-        contextWindow: NATIVE_MODEL_CONTEXT_TOKENS,
-        maxTokens: NATIVE_MODEL_CONTEXT_TOKENS,
+        maxTokens: runtimeModel.maxTokens,
+        ...(runtimeModel.params ? { params: runtimeModel.params } : {}),
       };
     }),
   };
@@ -136,36 +124,35 @@ export function buildAntigravityProviderCatalog(
 export function createAntigravityProvider(
   options: CreateAntigravityProviderOptions,
 ): ProviderPlugin {
+  const inventoryOwner = resolveAgyHostInventoryOwner(options);
+  const sharedOptions = { ...options, inventoryOwner };
   return {
     id: ANTIGRAVITY_PROVIDER_ID,
     label: "Google Antigravity native runtime",
     auth: [],
 
     prepareSyntheticAuth(ctx) {
-      return prepareAntigravitySyntheticAuth(options, {
-        provider: ctx.provider,
-        ...(ctx.signal !== undefined ? { signal: ctx.signal } : {}),
-      });
+      return prepareAntigravitySyntheticAuth(sharedOptions, ctx);
     },
 
     catalog: {
       order: "simple",
-      async run() {
-        const models = await discoverConfiguredModels(options);
+      async run(ctx) {
+        const models = await inventoryOwner.models(ctx);
         return { provider: buildAntigravityProviderCatalog(models) };
       },
     },
 
     normalizeModelId(ctx) {
-      return normalizeAntigravityModelId(ctx.modelId);
+      return ctx.modelId;
     },
 
     async prepareDynamicModel(ctx) {
       if (ctx.provider !== ANTIGRAVITY_PROVIDER_ID) {
         return;
       }
-      const requestedId = normalizeAntigravityModelId(ctx.modelId);
-      const models = await discoverConfiguredModels(options);
+      const requestedId = ctx.modelId;
+      const models = await inventoryOwner.models(ctx);
       const liveModel = models.find((model) => model.id === requestedId);
       return liveModel ? buildAntigravityNativeRuntimeModel(liveModel, models) : undefined;
     },
@@ -176,11 +163,12 @@ export function createAntigravityProvider(
 export function createAntigravityModelCatalogProvider(
   options: CreateAntigravityProviderOptions,
 ): UnifiedModelCatalogProviderPlugin {
+  const inventoryOwner = resolveAgyHostInventoryOwner(options);
   return {
     provider: ANTIGRAVITY_PROVIDER_ID,
     kinds: ["text"],
     async liveCatalog(ctx) {
-      const models = await discoverConfiguredModels(options, ctx.timeoutMs);
+      const models = await inventoryOwner.models(ctx, ctx.timeoutMs);
       return models.map((model) => ({
         kind: "text" as const,
         provider: ANTIGRAVITY_PROVIDER_ID,
@@ -193,3 +181,4 @@ export function createAntigravityModelCatalogProvider(
 }
 
 export { normalizeAntigravityModelId } from "./model-aliases.js";
+

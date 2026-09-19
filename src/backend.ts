@@ -1,4 +1,4 @@
-import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
+import type { OpenClawPluginApi } from "./host/types.js";
 
 type CliBackendPlugin = Parameters<OpenClawPluginApi["registerCliBackend"]>[0];
 
@@ -106,3 +106,4 @@ export function buildAntigravityCliBackend(
     },
   };
 }
+

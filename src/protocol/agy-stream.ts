@@ -35,7 +35,7 @@ export type AgyInitEvent = {
     cwd: string;
     tools: string[];
     permission_mode: string;
-    model?: string;
+    model: string;
     agent?: string;
     json_schema?: unknown;
   };
@@ -97,6 +97,18 @@ export type AgyStreamSnapshot = {
   result: AgyTerminalResult;
 };
 
+/** Observations survive a malformed/incomplete stream; this is never a success result. */
+export type AgyStreamPartialSnapshot = Omit<AgyStreamSnapshot, "conversationId" | "init" | "result"> & {
+  conversationId?: string;
+  init?: AgyInitEvent["init"];
+  result?: AgyTerminalResult;
+};
+
+export type AgyStreamExpectation = {
+  expectedModelId?: string;
+  expectedConversationId?: string;
+};
+
 export type AgyStreamProtocolErrorCode =
   | "malformed_json"
   | "malformed_event"
@@ -105,6 +117,10 @@ export type AgyStreamProtocolErrorCode =
   | "duplicate_terminal"
   | "event_after_terminal"
   | "conversation_mismatch"
+  | "model_mismatch"
+  | "invalid_step_transition"
+  | "incomplete_step"
+  | "nonterminal_result"
   | "nonterminal_eof"
   | "empty_success";
 
@@ -168,8 +184,8 @@ function optionalString(record: Record<string, unknown>, key: string, label: str
 
 function requiredFiniteNumber(record: Record<string, unknown>, key: string, label: string): number {
   const value = record[key];
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    return malformed(`${label}.${key} must be a finite number`);
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    return malformed(`${label}.${key} must be a non-negative finite number`);
   }
   return value;
 }
@@ -183,8 +199,8 @@ function optionalFiniteNumber(
   if (value === undefined) {
     return undefined;
   }
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    return malformed(`${label}.${key} must be a finite number when present`);
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    return malformed(`${label}.${key} must be a non-negative finite number when present`);
   }
   return value;
 }
@@ -199,7 +215,7 @@ function parseUsage(value: unknown, label: string): AgyUsage {
     total_tokens: requiredFiniteNumber(record, "total_tokens", label),
   };
   for (const [name, count] of Object.entries(usage)) {
-    if (!Number.isInteger(count) || count < 0) {
+    if (!Number.isSafeInteger(count) || count < 0) {
       return malformed(`${label}.${name} must be a non-negative integer`);
     }
   }
@@ -294,7 +310,9 @@ function parseInit(root: Record<string, unknown>): AgyInitEvent {
   if (!Array.isArray(tools) || tools.some((tool) => typeof tool !== "string")) {
     return malformed("init.tools must be a string array");
   }
-  const model = optionalString(init, "model", "init");
+  // Every adapter attempt explicitly selects --model. A missing acknowledgement
+  // therefore cannot be treated as native success, even without an expectation.
+  const model = nonEmptyString(init, "model", "init");
   const agent = optionalString(init, "agent", "init");
   return {
     event: "init",
@@ -303,7 +321,7 @@ function parseInit(root: Record<string, unknown>): AgyInitEvent {
       cwd: nonEmptyString(init, "cwd", "init"),
       tools: [...tools] as string[],
       permission_mode: nonEmptyString(init, "permission_mode", "init"),
-      ...(model !== undefined ? { model } : {}),
+      model,
       ...(agent !== undefined ? { agent } : {}),
       ...(init.json_schema !== undefined ? { json_schema: init.json_schema } : {}),
     },
@@ -317,24 +335,43 @@ function parseStepUpdate(root: Record<string, unknown>): AgyStepUpdateEvent {
     return malformed("step_update.state must be ACTIVE, DONE or ERROR");
   }
   const stepIndex = requiredFiniteNumber(step, "step_index", "step_update");
-  if (!Number.isInteger(stepIndex) || stepIndex < 0) {
+  if (!Number.isSafeInteger(stepIndex) || stepIndex < 0) {
     return malformed("step_update.step_index must be a non-negative integer");
   }
   const toolName = optionalString(step, "tool_name", "step_update");
   const textDelta = optionalString(step, "text_delta", "step_update");
   const durationSeconds = optionalFiniteNumber(step, "duration_seconds", "step_update");
+  const stepType = nonEmptyString(step, "step_type", "step_update");
+  // Recognized AGY step categories are explicit. system_message and error_message
+  // are informational evidence; neither is assistant output nor tool activity.
+  if (!["user_input", "agent_response", "tool", "checkpoint", "system_message", "error_message"].includes(stepType)) {
+    return malformed(`unsupported step_update.step_type: ${stepType}`);
+  }
+  const toolInfo = step.tool_info !== undefined ? parseToolInfo(step.tool_info) : undefined;
+  if (toolName !== undefined && !toolName.trim()) {
+    return malformed("step_update.tool_name must not be empty");
+  }
+  if (toolName !== undefined && toolInfo !== undefined && toolName !== toolInfo.name) {
+    return malformed("step_update tool_name contradicts tool_info.name");
+  }
+  if (stepType === "tool" && toolName === undefined && toolInfo === undefined && step.subagent_info === undefined) {
+    return malformed("tool step must identify its tool or subagent invocation");
+  }
+  if (stepType !== "tool" && (toolName !== undefined || toolInfo !== undefined)) {
+    return malformed("non-tool step contains contradictory tool identity");
+  }
   return {
     event: "step_update",
     step_update: {
       conversation_id: nonEmptyString(step, "conversation_id", "step_update"),
       step_index: stepIndex,
       state,
-      step_type: nonEmptyString(step, "step_type", "step_update"),
+      step_type: stepType,
       ...(toolName !== undefined ? { tool_name: toolName } : {}),
       ...(textDelta !== undefined ? { text_delta: textDelta } : {}),
       ...(durationSeconds !== undefined ? { duration_seconds: durationSeconds } : {}),
       ...(step.usage !== undefined ? { usage: parseUsage(step.usage, "step_update.usage") } : {}),
-      ...(step.tool_info !== undefined ? { tool_info: parseToolInfo(step.tool_info) } : {}),
+      ...(toolInfo !== undefined ? { tool_info: toolInfo } : {}),
       ...(step.subagent_info !== undefined
         ? { subagent_info: parseSubagentInfo(step.subagent_info) }
         : {}),
@@ -349,10 +386,13 @@ function parseResult(root: Record<string, unknown>): AgyResultEvent {
     return malformed(`result.status is unsupported: ${status}`);
   }
   const numTurns = requiredFiniteNumber(result, "num_turns", "result");
-  if (!Number.isInteger(numTurns) || numTurns < 0) {
+  if (!Number.isSafeInteger(numTurns) || numTurns < 0) {
     return malformed("result.num_turns must be a non-negative integer");
   }
   const error = optionalString(result, "error", "result");
+  if (status === "SUCCESS" && error?.trim()) {
+    return malformed("SUCCESS result contains a contradictory error");
+  }
   return {
     event: "result",
     result: {
@@ -408,14 +448,50 @@ export class AgyStreamAccumulator {
   #assistantTextParts: string[] = [];
   #stepUpdates: AgyStepUpdate[] = [];
   #toolSteps: AgyStepUpdate[] = [];
+  #steps = new Map<number, AgyStepUpdate>();
+  #failure: AgyStreamProtocolError | undefined;
+  readonly #expectation: AgyStreamExpectation;
+
+  constructor(expectation: AgyStreamExpectation = {}) {
+    this.#expectation = { ...expectation };
+  }
 
   consumeLine(line: string): AgyStreamEvent {
-    const event = parseAgyStreamLine(line);
-    this.consume(event);
-    return event;
+    return this.#guard(() => {
+      const event = parseAgyStreamLine(line);
+      this.#consume(event);
+      return event;
+    });
   }
 
   consume(event: AgyStreamEvent): void {
+    this.#guard(() => {
+      // Validate direct typed callers too; a cast is not protocol validation.
+      const root = asRecord(event, "event");
+      let validated: AgyStreamEvent;
+      switch (root.event) {
+        case "init": validated = parseInit(root); break;
+        case "step_update": validated = parseStepUpdate(root); break;
+        case "result": validated = parseResult(root); break;
+        default: return malformed(`unsupported AGY stream event: ${String(root.event)}`);
+      }
+      this.#consume(validated);
+    });
+  }
+
+  #guard<T>(operation: () => T): T {
+    if (this.#failure) throw this.#failure;
+    try {
+      return operation();
+    } catch (error) {
+      if (error instanceof AgyStreamProtocolError) this.#failure = error;
+      throw error;
+    }
+  }
+
+  #consume(input: AgyStreamEvent): void {
+    // Callback consumers cannot change retained evidence through object aliases.
+    const event = structuredClone(input);
     if (this.#result) {
       throw new AgyStreamProtocolError(
         event.event === "result" ? "duplicate_terminal" : "event_after_terminal",
@@ -429,8 +505,17 @@ export class AgyStreamAccumulator {
       if (this.#init) {
         throw new AgyStreamProtocolError("duplicate_init", "AGY emitted more than one init event");
       }
+      // Preserve the actual acknowledgement even when it contradicts the request.
       this.#conversationId = event.conversation_id;
       this.#init = event.init;
+      if (this.#expectation.expectedModelId !== undefined &&
+          event.init.model !== this.#expectation.expectedModelId) {
+        throw new AgyStreamProtocolError("model_mismatch", "AGY acknowledged a different exact model ID");
+      }
+      if (this.#expectation.expectedConversationId !== undefined &&
+          event.conversation_id !== this.#expectation.expectedConversationId) {
+        throw new AgyStreamProtocolError("conversation_mismatch", "AGY did not acknowledge the bound conversation");
+      }
       return;
     }
 
@@ -448,52 +533,80 @@ export class AgyStreamAccumulator {
     if (eventConversationId !== this.#conversationId) {
       throw new AgyStreamProtocolError(
         "conversation_mismatch",
-        `AGY conversation id changed from ${this.#conversationId} to ${eventConversationId}`,
+        "AGY conversation ID changed during the stream",
       );
     }
 
     if (event.event === "step_update") {
       const update = event.step_update;
+      // conversation identity is checked above; native step_index is the stable
+      // identity within that conversation. Arrival count is never an identity.
+      const previous = this.#steps.get(update.step_index);
+      const previousTool = previous?.tool_name ?? previous?.tool_info?.name;
+      const currentTool = update.tool_name ?? update.tool_info?.name;
+      if (previous && (previous.state !== "ACTIVE" ||
+          previous.step_type !== update.step_type ||
+          (previousTool !== undefined && currentTool !== undefined && previousTool !== currentTool))) {
+        throw new AgyStreamProtocolError(
+          "invalid_step_transition",
+          "AGY repeated a step terminal or changed an existing step identity",
+        );
+      }
+      // Retain known tool identity across ACTIVE messages which omit it.
+      this.#steps.set(update.step_index, {
+        ...update,
+        ...(currentTool === undefined && previousTool !== undefined ? { tool_name: previousTool } : {}),
+      });
       this.#stepUpdates.push(update);
       if (update.step_type === "agent_response" && update.text_delta !== undefined) {
-        // Deltas are ordered transport fragments. Never content-deduplicate them:
-        // repeated text can be intentional and the terminal response remains authoritative.
+        // Deltas are ordered fragments, including the final DONE fragment.
         this.#assistantTextParts.push(update.text_delta);
       }
-      if (update.step_type === "tool") {
-        this.#toolSteps.push(update);
-      }
+      if (update.step_type === "tool") this.#toolSteps.push(update);
       return;
     }
 
     this.#result = event.result;
+    if (event.result.status === "WAITING" || event.result.status === "RUNNING") {
+      throw new AgyStreamProtocolError("nonterminal_result", "AGY ended without a terminal native status");
+    }
+    if (event.result.status === "SUCCESS" &&
+        [...this.#steps.values()].some((step) => step.state === "ACTIVE")) {
+      throw new AgyStreamProtocolError("incomplete_step", "AGY reported SUCCESS with an unfinished step");
+    }
+  }
+
+  partialSnapshot(): AgyStreamPartialSnapshot {
+    return structuredClone({
+      ...(this.#conversationId !== undefined ? { conversationId: this.#conversationId } : {}),
+      ...(this.#init !== undefined ? { init: this.#init } : {}),
+      assistantText: this.#assistantTextParts.join(""),
+      stepUpdates: this.#stepUpdates,
+      toolSteps: this.#toolSteps,
+      ...(this.#result !== undefined ? { result: this.#result } : {}),
+    });
   }
 
   finalize(): AgyStreamSnapshot {
-    if (!this.#init || !this.#conversationId || !this.#result) {
-      throw new AgyStreamProtocolError(
-        "nonterminal_eof",
-        "AGY stream ended before init and exactly one terminal result were observed",
-      );
-    }
-    if (
-      this.#result.status === "SUCCESS" &&
-      this.#result.response.trim().length === 0 &&
-      this.#result.structured_output === undefined &&
-      (this.#result.denied_actions?.length ?? 0) === 0
-    ) {
-      throw new AgyStreamProtocolError(
-        "empty_success",
-        "AGY reported SUCCESS with an empty response, no structured output, and no denial metadata",
-      );
-    }
-    return {
-      conversationId: this.#conversationId,
-      init: this.#init,
-      assistantText: this.#assistantTextParts.join(""),
-      stepUpdates: [...this.#stepUpdates],
-      toolSteps: [...this.#toolSteps],
-      result: this.#result,
-    };
+    return this.#guard(() => {
+      if (!this.#init || !this.#conversationId || !this.#result) {
+        throw new AgyStreamProtocolError(
+          "nonterminal_eof",
+          "AGY stream ended before init and exactly one terminal result were observed",
+        );
+      }
+      if (
+        this.#result.status === "SUCCESS" &&
+        this.#result.response.trim().length === 0 &&
+        this.#result.structured_output === undefined &&
+        (this.#result.denied_actions?.length ?? 0) === 0
+      ) {
+        throw new AgyStreamProtocolError(
+          "empty_success",
+          "AGY reported SUCCESS with an empty response, no structured output, and no denial metadata",
+        );
+      }
+      return this.partialSnapshot() as AgyStreamSnapshot;
+    });
   }
 }

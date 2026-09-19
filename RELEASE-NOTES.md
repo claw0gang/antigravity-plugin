@@ -1,47 +1,32 @@
-# antigravity-plugin 0.2.6 release notes
+# antigravity-plugin 0.3.0 release notes
 
-antigravity-plugin `0.2.6` updates the public OpenClaw plugin contract for the current `2026.9.x` release line while preserving the existing native Google Antigravity CLI (`agy`) execution architecture.
-
-> **Independent project and upstream service notice:** This is an independent third-party integration and is not affiliated with, sponsored by, or endorsed by Google or OpenClaw. Google's current individual Antigravity terms and FAQ state that third-party access through OpenClaw with an Antigravity login/OAuth is prohibited and may result in suspension or termination. Enterprise/Google Cloud routes may be governed by separate terms. See [`NOTICE.md`](./NOTICE.md) and verify the terms applicable to your access route before use.
-
-## Compatibility
-
-| Component | 0.2.6 |
-| --- | --- |
-| OpenClaw plugin API | `>=2026.9.2 <2027.0.0` |
-| Minimum OpenClaw Gateway | `>=2026.9.2` |
-| Exact build baseline | OpenClaw `2026.9.4` |
-| Runtime validation baseline | OpenClaw `2026.9.4`, AGY `1.2.1` |
-| Node.js | `>=22.12.0` |
-
-The AGY version above is the validated baseline, not a declared minimum AGY version.
+`0.3.0` is the Phase 2 native-harness release of the independent ANTIGRAVITY OpenClaw plugin.
 
 ## Highlights
 
-- Provider-scoped live model discovery for the native `antigravity/*` runtime.
-- No executable static native model rows; native admission is based on live AGY discovery.
-- Exact preservation of effort-qualified AGY model identities such as `gemini-3.8-flash-low`.
-- Per-attempt live model validation before native execution.
-- Exact model/conversation binding for native session resume, with mismatch conditions failing closed.
-- Cold-discovery synthetic-auth readiness support for AGY-native authentication; the marker is control-plane metadata only and is never sent to AGY.
-- Portable public SDK type declarations without generated references to internal OpenClaw `dist/types-*` modules.
-- `dangerouslySkipPermissions` remains explicit, default-off, and maps to one AGY `--dangerously-skip-permissions` flag when enabled.
-- Native-tool terminal outcomes continue through OpenClaw's host-owned observation contract and are conservatively treated as replay-unsafe after completion.
-- Native image input supports PNG, JPEG/JPG, WebP, and GIF through private attempt-scoped temporary files.
+- Primary `antigravity/*` execution uses OpenClaw `AgentHarnessV2`; `antigravity-cli/*` remains a disjoint generic CLI-backend compatibility path.
+- Ordinary OpenClaw subagent spawning on exact ANTIGRAVITY models is supported for representable child policies.
+- Completed AGY child output is delivered through OpenClaw's supported assistant-result contract and independently mirrored into the canonical transcript.
+- Qualified OpenClaw restrictions are translated into deterministic AGY-native policy carriers; unsupported or ambiguous policy shapes remain fail-closed.
+- Live AGY model discovery, exact model identity, exact conversation resume, image input, terminal tool evidence, and conservative replay fencing remain part of the native runtime.
+- `dangerouslySkipPermissions` remains explicit and default-off.
 
-## Validation evidence
+## Compatibility
 
-The frozen canonical `0.2.6` candidate passed deterministic build/test/package validation and isolated runtime acceptance covering:
+| Component | Release contract |
+| --- | --- |
+| OpenClaw plugin API | `>=2026.9.2` |
+| OpenClaw Gateway | `>=2026.9.2` |
+| Reproducible SDK build provenance | `2026.9.4` |
+| Corrected Phase 2 behavioral baseline | OpenClaw `2026.9.4`, AGY `1.2.6` |
+| Node.js | `>=22.12.0` |
 
-- provider-scoped discovery of `antigravity/gemini-3.8-flash-low`;
-- successful AGY-native `view_file` execution;
-- exact model attribution without fallback or reroute;
-- same-session exact-model resume;
-- restricted/default permission behavior failing closed without unsafe success;
-- unchanged production OpenClaw configuration, Gateway state, and AGY global settings.
+### OpenClaw 2026.9.5 status
 
-## Public source provenance
+A source/API compatibility review found no blocker: ANTIGRAVITY's required plugin-entry, harness, session mutation, and terminal-helper surfaces remain available, and the 2026.9.5 Gateway/node transport V2 migration does not apply to ANTIGRAVITY's current integration. The release preparation still requires isolated package/runtime qualification against 2026.9.5 before the final public compatibility statement is frozen.
 
-[`EXPORT-MANIFEST.json`](./EXPORT-MANIFEST.json) records the canonical source commit, runtime source-tree identity, validation baseline, public export contents, and artifact state for this source snapshot.
+## Packaging/provenance
 
-This repository snapshot does not by itself assert current ClawHub publication, tag, or registry status. Publication remains a separate release action.
+Runtime source is exported from the accepted private development commit `d3cfc24a0eed0ebfd2036879002e15b3350ca467`. Public package metadata, legal notices, and release-facing documentation are release-only bytes and therefore trigger a fresh package build/test/export qualification before publication.
+
+No public merge, tag, npm publication, GitHub release, or ClawHub publication is implied by this preparation branch.

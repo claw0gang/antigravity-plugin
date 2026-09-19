@@ -1,0 +1,62 @@
+{
+  plugins: {
+    allow: [
+      // Existing allowlist entries...
+      "antigravity",
+    ],
+    entries: {
+      antigravity: {
+        enabled: true,
+        config: {
+          // ANTIGRAVITY invokes the original vendor CLI directly.
+          command: "agy",
+          printTimeout: "30m",
+          sandbox: true,
+
+          // Native AgentHarnessV2 attempts reject this flag. It exists only for
+          // the explicit antigravity-cli/* compatibility backend.
+          dangerouslySkipPermissions: false,
+
+          // Optional AGY-native controls:
+          // mode: "plan",
+          // agent: "critic",
+          // project: "project-id",
+          // newProject: false,
+          // addDirs: ["/absolute/allowed/path"],
+          // logFile: "/home/ubuntu/tmp/antigravity/agy.log",
+        },
+      },
+    },
+  },
+
+  agents: {
+    defaults: {
+      models: {
+        // Required: bind the complete antigravity/* namespace to the native
+        // AgentHarnessV2 runtime. This declares runtime ownership only; actual
+        // model availability remains discovered from `agy models`.
+        "antigravity/*": { agentRuntime: { id: "antigravity" } },
+
+        // Gemini models use exact AGY effort-qualified ids, for example:
+        // antigravity/gemini-3.8-flash-high
+        // antigravity/gemini-3.8-flash-medium
+        // antigravity/gemini-3.8-flash-low
+        // OpenClaw thinking levels are resolved to live siblings; ANTIGRAVITY
+        // does not send a conflicting --effort flag. `off` is rejected when the
+        // live family has no no-thinking sibling.
+        // Do not create floating Gemini aliases such as gemini-high/gemini-low.
+
+        // Optional non-Gemini compatibility aliases. Their AGY thinking is
+        // intrinsic/non-adjustable, so host thinking controls are not exposed.
+        "antigravity/sonnet-4-6": { alias: "agy-sonnet" },
+        "antigravity/opus-4-6": { alias: "agy-opus" },
+        "antigravity/gpt-oss": { alias: "agy-gpt-oss" },
+
+        // Add antigravity-cli/* rows only when the legacy generic CLI runtime is
+        // intentionally required. It does not implement host-adjustable
+        // reasoning controls; choose the exact fixed AGY model slug instead.
+        // "antigravity-cli/gemini-3.8-flash-high": {},
+      },
+    },
+  },
+}

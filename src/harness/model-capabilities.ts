@@ -1,4 +1,4 @@
-import type { AgentHarnessAttemptParamsV2 } from "openclaw/plugin-sdk/agent-harness-runtime";
+import type { AgentHarnessAttemptParamsV2 } from "../host/types.js";
 
 import type { AgyDiscoveredModel } from "./model-catalog.js";
 
@@ -50,8 +50,8 @@ export function resolveAgyAttemptModel(params: {
   thinkLevel: OpenClawThinkLevel;
   liveModels: readonly AgyDiscoveredModel[];
 }): ResolvedAgyAttemptModel {
-  const requestedModelId = params.modelId.trim();
-  if (!requestedModelId) {
+  const requestedModelId = params.modelId;
+  if (!requestedModelId || requestedModelId !== requestedModelId.trim()) {
     throw new Error("ANTIGRAVITY model id must not be empty");
   }
   if (!params.liveModels.some((model) => model.id === requestedModelId)) {
@@ -73,7 +73,7 @@ export function assertAgyResumeModelConsistency(params: {
   resolvedModelId: string;
   conversationId: string;
 }): void {
-  const boundModelId = params.boundModelId?.trim();
+  const boundModelId = params.boundModelId;
   if (!boundModelId) {
     throw new Error(
       `AGY conversation ${params.conversationId} has no canonical bound model id; reset the OpenClaw session before resuming`,
@@ -85,3 +85,4 @@ export function assertAgyResumeModelConsistency(params: {
     );
   }
 }
+

@@ -1,7 +1,8 @@
-import {
-  definePluginEntry,
-  type OpenClawPluginApi,
-} from "openclaw/plugin-sdk/plugin-entry";
+import { definePluginEntry } from "./host/entry.js";
+import { assertOpenClawCompatibility } from "./host/compatibility.js";
+import { createOpenClawAntigravityHostContracts } from "./host/runtime-identity.js";
+import { createAntigravitySessionRuntime } from "./host/session-runtime.js";
+import type { OpenClawPluginApi } from "./host/types.js";
 
 import { buildAntigravityCliBackend } from "./backend.js";
 import {
@@ -9,6 +10,7 @@ import {
   resolveAntigravityPluginConfig,
 } from "./config.js";
 import { createAntigravityHarness } from "./harness/harness.js";
+import { AgyHostInventoryOwner } from "./inventory-scope.js";
 import {
   createAntigravityModelCatalogProvider,
   createAntigravityProvider,
@@ -20,14 +22,30 @@ const antigravityPlugin = definePluginEntry({
   description: "Run Google Antigravity CLI as an OpenClaw native agent runtime",
   configSchema: antigravityConfigSchema,
   register(api: OpenClawPluginApi) {
+    assertOpenClawCompatibility(api);
     const config = resolveAntigravityPluginConfig(api.pluginConfig);
-    const providerOptions = { pluginConfig: config };
+    const inventoryOwner = new AgyHostInventoryOwner({ pluginConfig: config });
+    const providerOptions = { pluginConfig: config, inventoryOwner };
+    const sessionRuntime = createAntigravitySessionRuntime(api.runtime.agent.session);
+    const hostContracts = createOpenClawAntigravityHostContracts({
+      pluginConfig: config,
+      sessionRuntime,
+    });
+    // Public cleanup only; no timer, native restart or background discovery.
+    // Hosts without this optional lifecycle hook retain bounded one-shot reads.
+    api.registerService?.({
+      id: "antigravity-inventory",
+      start() {},
+      stop() { inventoryOwner.stop(); },
+    });
     api.registerProvider(createAntigravityProvider(providerOptions));
     api.registerModelCatalogProvider(createAntigravityModelCatalogProvider(providerOptions));
     api.registerAgentHarness(
       createAntigravityHarness({
         pluginConfig: config,
-        sessionRuntime: api.runtime.agent.session,
+        inventoryOwner,
+        sessionRuntime,
+        hostContracts,
       }),
     );
     api.registerCliBackend(buildAntigravityCliBackend(config));
@@ -66,3 +84,4 @@ export {
   normalizeAntigravityModelId,
   type CreateAntigravityProviderOptions,
 } from "./provider.js";
+

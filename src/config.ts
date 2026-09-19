@@ -25,6 +25,18 @@ const ALLOWED_KEYS = new Set([
   "addDirs",
   "logFile",
 ]);
+const AGY_PROJECT_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;
+
+/** One finite native/host budget; it is never restarted after discovery. */
+export function parseAgyPrintTimeoutMs(value: string): number {
+  const match = /^(\d+(?:\.\d+)?)(ms|s|m|h)$/u.exec(value);
+  const factor = { ms: 1, s: 1_000, m: 60_000, h: 3_600_000 };
+  const milliseconds = match ? Number(match[1]) * factor[match[2] as keyof typeof factor] : NaN;
+  if (!Number.isFinite(milliseconds) || milliseconds <= 0 || milliseconds > 2_147_483_647) {
+    throw new Error("antigravity printTimeout must be a finite positive duration (ms, s, m or h) within the timer limit");
+  }
+  return milliseconds;
+}
 
 function asRecord(value: unknown): Record<string, unknown> {
   if (value === undefined || value === null) {
@@ -95,6 +107,7 @@ export function resolveAntigravityPluginConfig(value: unknown): AntigravityPlugi
 
   const command = optionalString(raw, "command") ?? "agy";
   const printTimeout = optionalString(raw, "printTimeout") ?? "30m";
+  parseAgyPrintTimeoutMs(printTimeout);
   const mode = optionalString(raw, "mode");
   const agent = optionalString(raw, "agent");
   const project = optionalString(raw, "project");
@@ -102,6 +115,9 @@ export function resolveAntigravityPluginConfig(value: unknown): AntigravityPlugi
 
   if (mode !== undefined && mode !== "accept-edits" && mode !== "plan") {
     throw new Error("antigravity config mode must be accept-edits or plan");
+  }
+  if (project !== undefined && !AGY_PROJECT_ID.test(project)) {
+    throw new Error("antigravity config project must be an exact AGY project id containing only letters, digits, dot, underscore or hyphen");
   }
 
   const newProject = booleanValue(raw, "newProject", false);

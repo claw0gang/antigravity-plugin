@@ -35,42 +35,38 @@
       "command": {
         "type": "string",
         "minLength": 1,
-        "description": "Google Antigravity CLI executable name or path. Defaults to agy on PATH."
+        "description": "Antigravity CLI command. Defaults to agy on PATH."
       },
       "printTimeout": {
         "type": "string",
         "minLength": 1,
-        "description": "Value passed to AGY as --print-timeout. Defaults to 30m."
+        "description": "Value passed to agy --print-timeout."
       },
       "sandbox": {
         "type": "boolean",
-        "description": "Pass --sandbox to AGY. Enabled by default."
+        "description": "Pass --sandbox to agy."
       },
       "dangerouslySkipPermissions": {
         "type": "boolean",
-        "description": "Explicitly pass --dangerously-skip-permissions to AGY for native and compatibility execution. Disabled by default; enable only for intentionally unrestricted native-tool execution."
+        "description": "Explicitly pass --dangerously-skip-permissions to AGY headless execution for both the native harness and compatibility CLI, requesting always-proceed permission mode for native tools. Disabled by default; use only for intentionally unrestricted execution."
       },
       "mode": {
         "type": "string",
         "enum": [
           "accept-edits",
           "plan"
-        ],
-        "description": "Optional AGY execution mode."
+        ]
       },
       "agent": {
         "type": "string",
-        "minLength": 1,
-        "description": "Optional AGY agent selector."
+        "minLength": 1
       },
       "project": {
         "type": "string",
-        "minLength": 1,
-        "description": "Use a specific AGY project for fresh conversations. Mutually exclusive with newProject=true."
+        "minLength": 1
       },
       "newProject": {
-        "type": "boolean",
-        "description": "Start each fresh OpenClaw conversation in a new AGY project. Defaults to false and is mutually exclusive with project."
+        "type": "boolean"
       },
       "addDirs": {
         "type": "array",
@@ -78,13 +74,11 @@
           "type": "string",
           "minLength": 1
         },
-        "uniqueItems": true,
-        "description": "Additional directories exposed to AGY with repeated --add-dir arguments."
+        "uniqueItems": true
       },
       "logFile": {
         "type": "string",
-        "minLength": 1,
-        "description": "Optional AGY log file path passed with --log-file."
+        "minLength": 1
       }
     }
   },

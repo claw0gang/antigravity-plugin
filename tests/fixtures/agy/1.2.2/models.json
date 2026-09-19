@@ -1,0 +1,16 @@
+{
+  "models": [
+    {
+      "id": "gemini-3.8-flash-high",
+      "name": "Gemini 3.8 Flash (High)"
+    },
+    {
+      "id": "Vendor/Future:2026@preview",
+      "name": "Future opaque model",
+      "future_metadata": {
+        "uninterpreted": true
+      }
+    }
+  ],
+  "fixture_generation": "1.2.2"
+}
