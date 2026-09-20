@@ -22,7 +22,7 @@ Version `0.3.0` requires OpenClaw plugin/Gateway `>=2026.9.2` and Node.js `>=22.
 
 ### OpenClaw 2026.9.5
 
-The `0.3.0` compatibility range admits OpenClaw `2026.9.5`. A source/API review found the ANTIGRAVITY-required plugin-entry, AgentHarnessV2, session mutation, and terminal-helper contracts still present; the 2026.9.5 Gateway/node transport V2 migration does not apply to ANTIGRAVITY's current imports. Final 2026.9.5 support evidence remains the isolated package/runtime qualification performed for this release candidate.
+The `0.3.0` compatibility range admits OpenClaw `2026.9.5`. In isolated release qualification, the packaged plugin loaded against OpenClaw `2026.9.5`, preserved the expected provider/catalog/harness/CLI registrations, matched the exact `.tgz` payload to the installed plugin tree, and passed an isolated `openclaw plugins install` / inspect cycle. This does not claim qualification of OpenClaw itself, the production Gateway, or new live AGY behavior beyond the separately accepted behavioral baseline.
 
 ## Installation
 
@@ -109,7 +109,7 @@ ANTIGRAVITY's strength is a native OpenClaw harness around AGY with exact model/
 
 ## Provenance and release evidence
 
-`src/**` in this public release preparation is exported byte-for-byte from `claw0gang/antigravity@d3cfc24a0eed0ebfd2036879002e15b3350ca467`. Public packaging/legal documentation may differ and is requalified as part of `p02t009`. See `EXPORT-MANIFEST.json`, `RELEASE-NOTES.md`, `docs/BUILD.md`, and `docs/QUALIFICATION.md`.
+The canonical private release source is `claw0gang/antigravity@b16e85f112453f5272248a7629a89787b7a23cd1`. Its only delta from the accepted runtime commit `d3cfc24a0eed0ebfd2036879002e15b3350ca467` is the simulated source-SDK test fixture; `src/**` remains byte-for-byte unchanged. Public packaging/legal documentation differs intentionally and is requalified under `p02t009`. See `EXPORT-MANIFEST.json`, `RELEASE-NOTES.md`, `docs/BUILD.md`, and `docs/QUALIFICATION.md`.
 
 ## License
 

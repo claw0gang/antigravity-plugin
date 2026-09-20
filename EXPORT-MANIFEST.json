@@ -1,6 +1,6 @@
 {
   "schema": "antigravity-public-export/v1",
-  "status": "prepared-awaiting-artifact",
+  "status": "prepared-awaiting-final-qualification",
   "canonical": {
     "repository": "claw0gang/antigravity",
     "commit": "b16e85f112453f5272248a7629a89787b7a23cd1",
@@ -19,7 +19,7 @@
       "openclaw": "2026.9.4",
       "agy": "1.2.6"
     },
-    "openclaw2026_9_5": "source-contract-review-pass; isolated-package/runtime-qualification-pending"
+    "openclaw2026_9_5": "isolated-package/runtime-qualification-pass; final shipped-byte qualification pending release-text correction"
   },
   "runtimeInvariant": "Every src/** file is copied byte-for-byte from claw0gang/antigravity@b16e85f112453f5272248a7629a89787b7a23cd1.",
   "selectedPublicFiles": [
@@ -168,5 +168,11 @@
       "npm run pack:check"
     ],
     "note": "tests-only source fixture correction; runtime src/** unchanged from d3cfc24a0eed0ebfd2036879002e15b3350ca467"
+  },
+  "provenanceMetadata": {
+    "path": "EXPORT-MANIFEST.json",
+    "buildInput": false,
+    "packagePayload": false,
+    "reason": "Release provenance binds artifact digests after qualification and is intentionally excluded from deterministic build/export inputs to avoid a self-referential artifact identity."
   }
 }

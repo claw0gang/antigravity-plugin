@@ -23,10 +23,10 @@
 
 ### OpenClaw 2026.9.5 status
 
-A source/API compatibility review found no blocker: ANTIGRAVITY's required plugin-entry, harness, session mutation, and terminal-helper surfaces remain available, and the 2026.9.5 Gateway/node transport V2 migration does not apply to ANTIGRAVITY's current integration. The release preparation still requires isolated package/runtime qualification against 2026.9.5 before the final public compatibility statement is frozen.
+Isolated release qualification passed against OpenClaw `2026.9.5`: the packaged plugin loaded against the required public SDK subpaths, preserved the expected provider/catalog/harness/CLI registrations, matched the exact archive payload to the installed plugin tree, and passed an isolated plugin install/inspect cycle. This does not qualify OpenClaw itself, the production Gateway, or additional live AGY behavior beyond the separately accepted behavioral baseline.
 
 ## Packaging/provenance
 
-Runtime source is exported from the accepted private development commit `d3cfc24a0eed0ebfd2036879002e15b3350ca467`. Public package metadata, legal notices, and release-facing documentation are release-only bytes and therefore trigger a fresh package build/test/export qualification before publication.
+Canonical private release source is `b16e85f112453f5272248a7629a89787b7a23cd1`. Its only delta from accepted runtime commit `d3cfc24a0eed0ebfd2036879002e15b3350ca467` is the simulated source-SDK test fixture; runtime `src/**` is unchanged. Public package metadata, legal notices, and release-facing documentation are release-only bytes and are included in the final package build/test/export qualification before publication.
 
 No public merge, tag, npm publication, GitHub release, or ClawHub publication is implied by this preparation branch.

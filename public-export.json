@@ -2,7 +2,6 @@
   "schemaVersion": 1,
   "files": [
     ".gitignore",
-    "EXPORT-MANIFEST.json",
     "LICENSE",
     "NOTICE.md",
     "README.md",
