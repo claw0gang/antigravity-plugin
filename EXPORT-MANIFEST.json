@@ -1,6 +1,6 @@
 {
   "schema": "antigravity-public-export/v1",
-  "status": "prepared-awaiting-final-qualification",
+  "status": "qualified-awaiting-independent-critic",
   "canonical": {
     "repository": "claw0gang/antigravity",
     "commit": "b16e85f112453f5272248a7629a89787b7a23cd1",
@@ -19,7 +19,7 @@
       "openclaw": "2026.9.4",
       "agy": "1.2.6"
     },
-    "openclaw2026_9_5": "isolated-package/runtime-qualification-pass on prior release-text candidate; final rollback-text candidate qualification pending"
+    "openclaw2026_9_5": "isolated-package/runtime-qualification-pass"
   },
   "runtimeInvariant": "Every src/** file is copied byte-for-byte from claw0gang/antigravity@b16e85f112453f5272248a7629a89787b7a23cd1.",
   "selectedPublicFiles": [
@@ -153,9 +153,24 @@
     "tsconfig.json"
   ],
   "generatedExportManifest": "public-export-manifest.json",
-  "artifact": null,
+  "artifact": {
+    "package": "@claw0gang/antigravity",
+    "version": "0.3.0",
+    "buildSha256": "aac5880886c71ab255d08bb567677e314ad12c7a3ff9f9dd842866ced0700609",
+    "packageSha256": "5fe8b0125ebb2589ec5c3d343b004521fbf233ecdb4a4f3d71d849c2ae0f8113",
+    "packedTreeSha256": "5d2b71b0bd06294a892bdc493d50713dbc805bd6248a8e39b504b9d950998559",
+    "publicSourceTreeSha256": "4a8da0a5297c334c25860e9b204c60b2605b931d49790a343edeee206b3dd4e5",
+    "publicExportManifestSha256": "ec5c250795383153890db10034b5b3d5b423c17f21a5c7a9f1b1b8447a2cedfc",
+    "qualification": {
+      "openclaw": "2026.9.5",
+      "sourceExportIdentity": "passed",
+      "archiveInstalledIdentity": "passed",
+      "isolatedPluginInstall": "passed",
+      "isolatedPluginInspect": "passed",
+      "productionOpenClawChanged": false
+    }
+  },
   "sourceValidation": {
-    "host": "aphenon-tokyo",
     "subject": "b16e85f112453f5272248a7629a89787b7a23cd1",
     "result": "passed",
     "checks": [
@@ -178,5 +193,11 @@
     "knownGoodRelease": "v0.2.6",
     "artifact": "claw0gang-antigravity-0.2.6.tgz",
     "sha256": "2a0da789656b0b43b2c0eff9bd3fea338805b88cf96684969f94a74a5605f658"
+  },
+  "qualifiedSource": {
+    "publicPreparationCommit": "e18ae52caf1f39d69ce0627027db7d878fcaf9f3",
+    "canonicalPrivateCommit": "b16e85f112453f5272248a7629a89787b7a23cd1",
+    "acceptedRuntimeCommit": "d3cfc24a0eed0ebfd2036879002e15b3350ca467",
+    "runtimeDeltaFromAccepted": "none; private correction changes only tests/fixtures/source-sdk.mjs"
   }
 }
