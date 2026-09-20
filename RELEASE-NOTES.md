@@ -25,6 +25,19 @@
 
 Isolated release qualification passed against OpenClaw `2026.9.5`: the packaged plugin loaded against the required public SDK subpaths, preserved the expected provider/catalog/harness/CLI registrations, matched the exact archive payload to the installed plugin tree, and passed an isolated plugin install/inspect cycle. This does not qualify OpenClaw itself, the production Gateway, or additional live AGY behavior beyond the separately accepted behavioral baseline.
 
+## Rollback
+
+The preserved known-good public release is `v0.2.6`.
+
+If `0.3.0` must be rolled back, use the canonical GitHub release artifact `claw0gang-antigravity-0.2.6.tgz`, verify SHA-256 `2a0da789656b0b43b2c0eff9bd3fea338805b88cf96684969f94a74a5605f658`, then reinstall that exact local artifact:
+
+```bash
+sha256sum claw0gang-antigravity-0.2.6.tgz
+openclaw plugins install ./claw0gang-antigravity-0.2.6.tgz --force --accept-capabilities
+```
+
+After rollback, inspect the installed plugin and restore the previously known-good OpenClaw/AGY configuration if any `0.3.0`-specific configuration was introduced. Rollback does not authorize changing OpenClaw itself or bypassing upstream AGY authentication/terms.
+
 ## Packaging/provenance
 
 Canonical private release source is `b16e85f112453f5272248a7629a89787b7a23cd1`. Its only delta from accepted runtime commit `d3cfc24a0eed0ebfd2036879002e15b3350ca467` is the simulated source-SDK test fixture; runtime `src/**` is unchanged. Public package metadata, legal notices, and release-facing documentation are release-only bytes and are included in the final package build/test/export qualification before publication.

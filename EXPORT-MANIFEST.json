@@ -1,6 +1,6 @@
 {
   "schema": "antigravity-public-export/v1",
-  "status": "qualified-awaiting-independent-critic",
+  "status": "prepared-awaiting-final-qualification",
   "canonical": {
     "repository": "claw0gang/antigravity",
     "commit": "b16e85f112453f5272248a7629a89787b7a23cd1",
@@ -19,7 +19,7 @@
       "openclaw": "2026.9.4",
       "agy": "1.2.6"
     },
-    "openclaw2026_9_5": "isolated-package/runtime-qualification-pass"
+    "openclaw2026_9_5": "isolated-package/runtime-qualification-pass on prior release-text candidate; final rollback-text candidate qualification pending"
   },
   "runtimeInvariant": "Every src/** file is copied byte-for-byte from claw0gang/antigravity@b16e85f112453f5272248a7629a89787b7a23cd1.",
   "selectedPublicFiles": [
@@ -153,24 +153,7 @@
     "tsconfig.json"
   ],
   "generatedExportManifest": "public-export-manifest.json",
-  "artifact": {
-    "package": "@claw0gang/antigravity",
-    "version": "0.3.0",
-    "buildSha256": "174906c4fe6bd4f92d12323143e64cd7b71b696a21ff7f19febca56a0229236a",
-    "packageSha256": "3443867a75e5b1af91ae853cae5ebab14d420aed5fdef72e092af42f5d4ee681",
-    "packedTreeSha256": "df585cd32b9620b87d85c583f9d7363b173455818a34e571bb7aff8d9fe6ec0b",
-    "publicSourceTreeSha256": "73ac7e7538c21f1617b91f0057acedb1624cdbb763f376d559cbf4c8f74d483f",
-    "publicExportManifestSha256": "0740658f703cbd086230ee1fa53fe88946882c923f9d6c5fbde6c853c9920fd0",
-    "qualification": {
-      "host": "aphenon-tokyo",
-      "openclaw": "2026.9.5",
-      "result": "passed",
-      "sourceExportIdentity": "passed",
-      "archiveInstalledIdentity": "passed",
-      "isolatedPluginInstall": "passed",
-      "productionOpenClawChanged": false
-    }
-  },
+  "artifact": null,
   "sourceValidation": {
     "host": "aphenon-tokyo",
     "subject": "b16e85f112453f5272248a7629a89787b7a23cd1",
@@ -191,8 +174,9 @@
     "packagePayload": false,
     "reason": "Release provenance binds artifact digests after qualification and is intentionally excluded from deterministic build/export inputs to avoid a self-referential artifact identity."
   },
-  "qualifiedSource": {
-    "publicPreparationCommit": "7b66b4be73f19ec68057b0f42deb0bbd8a763e53",
-    "canonicalPrivateCommit": "b16e85f112453f5272248a7629a89787b7a23cd1"
+  "rollback": {
+    "knownGoodRelease": "v0.2.6",
+    "artifact": "claw0gang-antigravity-0.2.6.tgz",
+    "sha256": "2a0da789656b0b43b2c0eff9bd3fea338805b88cf96684969f94a74a5605f658"
   }
 }
