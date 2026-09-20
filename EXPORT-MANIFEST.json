@@ -3,7 +3,7 @@
   "status": "prepared-awaiting-artifact",
   "canonical": {
     "repository": "claw0gang/antigravity",
-    "commit": "d3cfc24a0eed0ebfd2036879002e15b3350ca467",
+    "commit": "b16e85f112453f5272248a7629a89787b7a23cd1",
     "version": "0.3.0"
   },
   "publicPreparation": {
@@ -21,7 +21,7 @@
     },
     "openclaw2026_9_5": "source-contract-review-pass; isolated-package/runtime-qualification-pending"
   },
-  "runtimeInvariant": "Every src/** file is copied byte-for-byte from claw0gang/antigravity@d3cfc24a0eed0ebfd2036879002e15b3350ca467.",
+  "runtimeInvariant": "Every src/** file is copied byte-for-byte from claw0gang/antigravity@b16e85f112453f5272248a7629a89787b7a23cd1.",
   "selectedPublicFiles": [
     ".gitignore",
     "EXPORT-MANIFEST.json",
@@ -154,5 +154,19 @@
     "tsconfig.json"
   ],
   "generatedExportManifest": "public-export-manifest.json",
-  "artifact": null
+  "artifact": null,
+  "sourceValidation": {
+    "host": "aphenon-tokyo",
+    "subject": "b16e85f112453f5272248a7629a89787b7a23cd1",
+    "result": "passed",
+    "checks": [
+      "npm ci",
+      "npm run build",
+      "npm test",
+      "npm run test:source",
+      "npm run test:build-tools",
+      "npm run pack:check"
+    ],
+    "note": "tests-only source fixture correction; runtime src/** unchanged from d3cfc24a0eed0ebfd2036879002e15b3350ca467"
+  }
 }
