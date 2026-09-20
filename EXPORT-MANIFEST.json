@@ -1,6 +1,6 @@
 {
   "schema": "antigravity-public-export/v1",
-  "status": "prepared-awaiting-documentation-requalification",
+  "status": "qualified-awaiting-independent-critic",
   "canonical": {
     "repository": "claw0gang/antigravity",
     "commit": "b16e85f112453f5272248a7629a89787b7a23cd1",
@@ -19,7 +19,7 @@
       "openclaw": "2026.9.4",
       "agy": "1.2.6"
     },
-    "openclaw2026_9_5": "previous isolated-package/runtime qualification passed; README/release-note publishing correction requires final package requalification"
+    "openclaw2026_9_5": "isolated-package/runtime-qualification-pass"
   },
   "runtimeInvariant": "Every src/** file is copied byte-for-byte from claw0gang/antigravity@b16e85f112453f5272248a7629a89787b7a23cd1.",
   "selectedPublicFiles": [
@@ -153,7 +153,23 @@
     "tsconfig.json"
   ],
   "generatedExportManifest": "public-export-manifest.json",
-  "artifact": null,
+  "artifact": {
+    "package": "@claw0gang/antigravity",
+    "version": "0.3.0",
+    "buildSha256": "b46c19f075cff9efd29352b21df913eeb43fcea6fc34eb61093cee924bf05623",
+    "packageSha256": "4c1d3a5521dbd6c35142e3eeff02905f92c3c8c8db62434f0402b729738c23d8",
+    "packedTreeSha256": "ee50e68f47f8b211b50cf90ec767d83c5d058bfc728d7be3d8d8264b0d7815d0",
+    "publicSourceTreeSha256": "900ceaef2ea21d90c7b6e8d161160e3c5d9d8e173a6be4947e0a7635d33383a8",
+    "publicExportManifestSha256": "e4e720d6520607260ff7279a732f2d73fc38ae8836e979132b7af6d89050b5de",
+    "qualification": {
+      "openclaw": "2026.9.5",
+      "sourceExportIdentity": "passed",
+      "archiveInstalledIdentity": "passed",
+      "isolatedPluginInstall": "passed",
+      "isolatedPluginInspect": "passed",
+      "productionOpenClawChanged": false
+    }
+  },
   "sourceValidation": {
     "subject": "b16e85f112453f5272248a7629a89787b7a23cd1",
     "result": "passed",
@@ -183,5 +199,11 @@
     "cliName": "agy",
     "readmePurpose": "ClawHub installation/configuration guide with legal/upstream notices at the end",
     "correctionFromAcceptedSubject": "README.md and RELEASE-NOTES.md publishing-language correction"
+  },
+  "qualifiedSource": {
+    "publicPreparationCommit": "bdbd8fbf6f9689869e3901f4c809b7b3453948a7",
+    "canonicalPrivateCommit": "b16e85f112453f5272248a7629a89787b7a23cd1",
+    "acceptedRuntimeCommit": "d3cfc24a0eed0ebfd2036879002e15b3350ca467",
+    "runtimeDeltaFromAccepted": "none; private correction changes only tests/fixtures/source-sdk.mjs"
   }
 }
