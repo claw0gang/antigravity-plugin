@@ -1,14 +1,14 @@
-# antigravity-plugin 0.3.0 release notes
+# Antigravity Plugin 0.3.0 release notes
 
-`0.3.0` is the Phase 2 native-harness release of the independent ANTIGRAVITY OpenClaw plugin.
+`0.3.0` is the Phase 2 native-harness release of the independent Antigravity Plugin for OpenClaw.
 
 ## Highlights
 
 - Primary `antigravity/*` execution uses OpenClaw `AgentHarnessV2`; `antigravity-cli/*` remains a disjoint generic CLI-backend compatibility path.
-- Ordinary OpenClaw subagent spawning on exact ANTIGRAVITY models is supported for representable child policies.
-- Completed AGY child output is delivered through OpenClaw's supported assistant-result contract and independently mirrored into the canonical transcript.
-- Qualified OpenClaw restrictions are translated into deterministic AGY-native policy carriers; unsupported or ambiguous policy shapes remain fail-closed.
-- Live AGY model discovery, exact model identity, exact conversation resume, image input, terminal tool evidence, and conservative replay fencing remain part of the native runtime.
+- Ordinary OpenClaw subagent spawning on exact Antigravity Plugin models is supported for representable child policies.
+- Completed `agy` child output is delivered through OpenClaw's supported assistant-result contract and independently mirrored into the canonical transcript.
+- Qualified OpenClaw restrictions are translated into deterministic `agy`-native policy carriers; unsupported or ambiguous policy shapes remain fail-closed.
+- Live `agy` model discovery, exact model identity, exact conversation resume, image input, terminal tool evidence, and conservative replay fencing remain part of the native runtime.
 - `dangerouslySkipPermissions` remains explicit and default-off.
 
 ## Compatibility
@@ -18,12 +18,12 @@
 | OpenClaw plugin API | `>=2026.9.2` |
 | OpenClaw Gateway | `>=2026.9.2` |
 | Reproducible SDK build provenance | `2026.9.4` |
-| Corrected Phase 2 behavioral baseline | OpenClaw `2026.9.4`, AGY `1.2.6` |
+| Corrected Phase 2 behavioral baseline | OpenClaw `2026.9.4`, `agy` `1.2.6` |
 | Node.js | `>=22.12.0` |
 
 ### OpenClaw 2026.9.5 status
 
-Isolated release qualification passed against OpenClaw `2026.9.5`: the packaged plugin loaded against the required public SDK subpaths, preserved the expected provider/catalog/harness/CLI registrations, matched the exact archive payload to the installed plugin tree, and passed an isolated plugin install/inspect cycle. This does not qualify OpenClaw itself, the production Gateway, or additional live AGY behavior beyond the separately accepted behavioral baseline.
+Isolated release qualification passed against OpenClaw `2026.9.5`: the packaged plugin loaded against the required public SDK subpaths, preserved the expected provider/catalog/harness/CLI registrations, matched the exact archive payload to the installed plugin tree, and passed an isolated plugin install/inspect cycle. This does not qualify OpenClaw itself, the production Gateway, or additional live `agy` behavior beyond the separately accepted behavioral baseline.
 
 ## Rollback
 
@@ -36,7 +36,7 @@ sha256sum claw0gang-antigravity-0.2.6.tgz
 openclaw plugins install ./claw0gang-antigravity-0.2.6.tgz --force --accept-capabilities
 ```
 
-After rollback, inspect the installed plugin and restore the previously known-good OpenClaw/AGY configuration if any `0.3.0`-specific configuration was introduced. Rollback does not authorize changing OpenClaw itself or bypassing upstream AGY authentication/terms.
+After rollback, inspect the installed plugin and restore the previously known-good OpenClaw/`agy` configuration if any `0.3.0`-specific configuration was introduced. Rollback does not authorize changing OpenClaw itself or bypassing upstream `agy` authentication/terms.
 
 ## Packaging/provenance
 
