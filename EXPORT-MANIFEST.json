@@ -164,22 +164,24 @@
     "packageSha256": "89bf841f0218d46f6be3b547a9f3cd0b8553ef8361b319bfc17387d037718795"
   },
   "publicArtifact": {
-    "qualificationSourceCommit": "97ff4e483785fcf1f7e5187bd00b0dec2888a79f",
-    "buildSha256": "c38c6ea7469e5b23fd4d57318356385bf4abe7918b42007d9225adefd0486b92",
-    "packageSha256": "bc5ed80437ef1b71ffc341d27a68094118ad38b9d1f5f16db76c3de02c960883",
-    "packageShasum": "bba35e47e630793bd53ba3cd57d3e1d55f7f9758",
-    "packageIntegrity": "sha512-NdM2LLwssFZyEu+VL39gwTnPfAIJRwW2dOdADTwu6fY8rKJUgVQhRJzGoSbsqWFvU/YBoAg4le/YfFoTtjudsg==",
+    "qualificationSourceCommit": "5ad9741b1adc1305a9d9caebe7cafc7028bfadfd",
+    "buildSha256": "b923b1cc715c58cbaa58cdcd987e77775b0c97520d57b6ec8f18b2aa5c54d7d1",
+    "packageSha256": "d69b504b6231925bffef9a0a02d36142fcd8fae80b0b3dc8c2b614d20d1e69ad",
+    "packageShasum": "e53db724e0d968f1035aeeb33deb9b636d0e50f4",
+    "packageIntegrity": "sha512-TkkLjASUp4a+6YBUaMMKbkaIjw/2LOGU/MT2cDcmGxzCEViS4xx1wxybWJEDoCL9iQbmtHS3o09jAr2v6i4+Aw==",
     "fileCount": 154,
-    "size": 152701,
-    "unpackedSize": 661676,
+    "size": 151033,
+    "unpackedSize": 654872,
     "validation": "passed",
     "checks": [
       "npm ci",
       "npm run check",
       "npm run pack:check",
-      "npm pack"
+      "npm pack",
+      "clawhub package validate",
+      "clawhub package publish --dry-run"
     ],
-    "retainedPath": "/home/ubuntu/tmp/local-exec/retained/antigravity/p02/p02t014/pack-001/claw0gang-antigravity-0.3.1.tgz"
+    "retainedPath": "/home/ubuntu/tmp/local-exec/retained/antigravity/p02/p02t014/pack-002/claw0gang-antigravity-0.3.1.tgz"
   },
   "rollback": {
     "knownGoodRelease": "v0.3.0",
@@ -191,5 +193,17 @@
     "buildInput": false,
     "packagePayload": false,
     "reason": "Release provenance records post-qualification artifact identity and is excluded from the deterministic private public-export list and npm package payload."
+  },
+  "clawhubDryRun": {
+    "cliVersion": "0.23.3",
+    "source": "github:claw0gang/antigravity-plugin@task/p02t014-release-preparation",
+    "family": "code-plugin",
+    "name": "@claw0gang/antigravity",
+    "version": "0.3.1",
+    "commit": "5ad9741b1adc1305a9d9caebe7cafc7028bfadfd",
+    "files": 154,
+    "totalBytes": 151033,
+    "validationStatus": "pass",
+    "validationIssueCount": 0
   }
 }
