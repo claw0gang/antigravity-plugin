@@ -233,6 +233,8 @@ async function runBoundedProcess(
       stdio: "pipe" as const,
     };
     context.assertActive();
+    // Intentional CLI-bridge capability: command is a resolved executable, argv is structured,
+    // shell execution is disabled, and model/user prompt content is delivered only over stdin.
     child = spawn(command, args, spawnOptions);
   } catch (error) {
     evidence.invocation = "not_started";

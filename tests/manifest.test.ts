@@ -23,6 +23,7 @@ const manifest = JSON.parse(
     onAgentHarnesses?: string[];
   };
   cliBackends?: string[];
+  skills?: string[];
   setup?: { cliBackends?: string[] };
   configSchema?: { properties?: Record<string, ConfigProperty> };
   configContracts?: {
@@ -79,6 +80,7 @@ test("manifest reserves antigravity for the harness and exposes only antigravity
   assert.deepEqual(manifest.activation?.onAgentHarnesses, ["antigravity"]);
   assert.deepEqual(manifest.cliBackends, ["antigravity-cli"]);
   assert.deepEqual(manifest.setup?.cliBackends, ["antigravity-cli"]);
+  assert.deepEqual(manifest.skills, ["./skills"]);
   assert.ok(!manifest.cliBackends?.includes("antigravity"));
   assert.ok(!manifest.setup?.cliBackends?.includes("antigravity"));
 });

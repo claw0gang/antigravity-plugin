@@ -2,7 +2,7 @@
 
 Use models available through Google Antigravity CLI (`agy`) as native OpenClaw agent runtimes.
 
-Antigravity Plugin connects OpenClaw to an existing `agy` installation while keeping OpenClaw responsible for orchestration, sessions, agents and subagents. `agy` remains responsible for its native model execution, tools, authentication, projects and conversations.
+Antigravity Plugin 0.3.1 connects OpenClaw to an existing `agy` installation while keeping OpenClaw responsible for orchestration, sessions, agents and subagents. `agy` remains responsible for its native model execution, tools, authentication, projects and conversations.
 
 ## What you get
 
@@ -99,6 +99,17 @@ If your running Gateway did not automatically apply the installation, restart it
 openclaw gateway restart
 ```
 
+
+## Bundled OpenClaw skill
+
+Version 0.3.1 includes the lightweight `antigravity-plugin` skill. OpenClaw discovers it from the plugin's declared `./skills` root. It summarizes the exact AGY project binding, explicit ClawHub install source, same-agent/workspace usage, sandbox/permission guidance, and per-spawn model selection.
+
+Inspect it with:
+
+```bash
+openclaw skills info antigravity-plugin --agent main --json
+```
+
 ---
 
 ## 2. Configure the native runtime
@@ -123,6 +134,7 @@ Add the plugin and bind the complete `antigravity/*` model namespace to its nati
           printTimeout: "30m",
           sandbox: true,
           dangerouslySkipPermissions: false,
+          project: "EXACT-AGY-PROJECT-ID",
         },
       },
     },
@@ -150,6 +162,8 @@ This tells OpenClaw to:
 4. bind discovered `antigravity/*` models to the plugin's native harness.
 
 It does **not** hard-code the actual `agy` model inventory. Native model availability is discovered from `agy`.
+
+The native `antigravity/*` runtime requires one exact AGY project id. That AGY project's configured resource root must contain the OpenClaw agent workspace/cwd used for the attempt. This project binding is a runtime identity fence, not a default-model setting.
 
 ---
 
@@ -350,9 +364,9 @@ If a required restriction cannot be represented safely by `agy`, the plugin fail
 
 The following options change how the plugin invokes `agy`. They are configuration choices, not separate OpenClaw usage patterns.
 
-## Select an `agy` project
+## Select the required `agy` project
 
-If your `agy` setup uses a specific native project:
+The native `antigravity/*` harness requires one exact AGY project id:
 
 ```json5
 {
@@ -360,13 +374,11 @@ If your `agy` setup uses a specific native project:
     entries: {
       antigravity: {
         enabled: true,
-
         config: {
           command: "agy",
           sandbox: true,
           dangerouslySkipPermissions: false,
-
-          project: "your-project-id",
+          project: "EXACT-AGY-PROJECT-ID",
         },
       },
     },
@@ -374,10 +386,11 @@ If your `agy` setup uses a specific native project:
 }
 ```
 
-Antigravity Plugin checks project, account and runtime identity when binding and resuming `agy` conversations.
+The matching AGY project must exist under the active Gemini home, and one of its configured resource roots must contain the OpenClaw attempt workspace/cwd. For a shared OpenClaw workspace, use an AGY project rooted at that workspace.
 
-A conversation created under one incompatible execution identity is not silently reused under another.
+This binding does not pin the model. Different sessions and subagents may still choose different exact `antigravity/*` model IDs.
 
+Do **not** use `newProject: true` as a substitute for this native strict identity binding.
 ---
 
 ## Set the `agy` execution mode

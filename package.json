@@ -1,19 +1,20 @@
 {
   "name": "@claw0gang/antigravity",
-  "version": "0.3.0",
-  "description": "Independent third-party OpenClaw AgentHarnessV2 and CLI-backend integration for Google Antigravity CLI (agy)",
+  "version": "0.3.1",
+  "description": "OpenClaw AgentHarnessV2 runtime for Google Antigravity CLI",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "files": [
     "dist",
+    "skills",
     "openclaw.plugin.json",
     "README.md",
+    "docs/BUILD.md",
+    "docs/QUALIFICATION.md",
     "LICENSE",
     "NOTICE.md",
-    "RELEASE-NOTES.md",
-    "docs/BUILD.md",
-    "docs/QUALIFICATION.md"
+    "RELEASE-NOTES.md"
   ],
   "scripts": {
     "clean": "node tools/build-artifact.mjs --clean",

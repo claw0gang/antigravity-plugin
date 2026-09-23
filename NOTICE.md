@@ -6,7 +6,7 @@ References to Google Antigravity, OpenClaw, Claude, Codex, Anthropic, OpenAI, an
 
 ## Upstream service terms
 
-As of 2026-09-12, Google's published Antigravity Additional Terms and FAQ state that using third-party software, tools, or services, including OpenClaw, to access Antigravity with an individual Antigravity login/OAuth is prohibited and may result in suspension or termination.
+As of 2026-09-23, Google's published Antigravity Additional Terms and FAQ state that using third-party software, tools, or services, including OpenClaw, to access Antigravity with an individual Antigravity login/OAuth is prohibited and may result in suspension or termination.
 
 Do not use an individual or personal Antigravity account through this integration unless Google expressly authorizes that use.
 

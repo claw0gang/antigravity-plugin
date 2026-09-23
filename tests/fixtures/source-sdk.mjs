@@ -1,4 +1,5 @@
-// SIMULATED SDK: intentionally narrow source-test fixture.
+// SIMULATED SDK: intentionally narrow terminal normalization fixture.
+// Only the input fields currently emitted by the source harness are supported.
 // It permits credential-free source behavior checks when OpenClaw is absent;
 // it is not evidence for the actual SDK contract or a substitute for packed tests.
 const supportedFields = new Set([
@@ -9,32 +10,6 @@ const supportedFields = new Set([
   "promptError",
   "promptErrorSource",
 ]);
-
-function assistantSourceText(message) {
-  if (!message || message.role !== "assistant" || message.display === false) return undefined;
-  if (!Array.isArray(message.content)) return undefined;
-  const text = message.content
-    .filter((part) => part && part.type === "text" && typeof part.text === "string")
-    .map((part) => part.text)
-    .join("\n");
-  return text || undefined;
-}
-
-// Source tests have no registered before_message_write hooks, so the simulated
-// helper is identity-preserving except for OpenClaw's prepared-assistant
-// projection callback when one is supplied.
-export function runAgentHarnessBeforeMessageWriteHook(params) {
-  const message = params?.message;
-  const sourceText = assistantSourceText(message);
-  return (
-    message?.role === "assistant" &&
-    message?.display !== false &&
-    sourceText !== undefined &&
-    typeof params?.prepareAssistantTranscriptMessage === "function"
-  )
-    ? params.prepareAssistantTranscriptMessage(message, sourceText)
-    : message;
-}
 
 export const agentHarnessAttemptTerminal = Object.freeze({
   normalize(input) {

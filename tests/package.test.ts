@@ -21,7 +21,7 @@ const pkg = JSON.parse(
 };
 
 test("minimum OpenClaw runtime range stays distinct from exact SDK build provenance", () => {
-  assert.equal(pkg.version, "0.3.0");
+  assert.equal(pkg.version, "0.3.1");
   assert.equal(pkg.openclaw?.compat?.pluginApi, ">=2026.9.2");
   assert.equal(pkg.openclaw?.compat?.minGatewayVersion, ">=2026.9.2");
   assert.equal(pkg.openclaw?.build?.openclawVersion, "2026.9.4");
@@ -37,6 +37,7 @@ test("package ships built runtime and lightweight provider discovery before pack
   assert.deepEqual(pkg.openclaw?.extensions, ["./dist/index.js"]);
   assert.deepEqual(pkg.openclaw?.runtimeExtensions, ["./dist/index.js"]);
   assert.ok(pkg.files?.includes("dist"));
+  assert.ok(pkg.files?.includes("skills"));
   assert.ok(pkg.files?.includes("openclaw.plugin.json"));
   assert.ok(pkg.files?.includes("README.md"));
   assert.ok(pkg.files?.includes("docs/BUILD.md"));

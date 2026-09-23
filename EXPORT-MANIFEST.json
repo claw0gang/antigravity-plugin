@@ -1,29 +1,32 @@
 {
   "schema": "antigravity-public-export/v1",
-  "status": "qualified-awaiting-independent-critic",
+  "status": "prepared-awaiting-package-validation",
   "canonical": {
     "repository": "claw0gang/antigravity",
-    "commit": "b16e85f112453f5272248a7629a89787b7a23cd1",
-    "version": "0.3.0"
+    "commit": "3b4801039fce4cb49780726839247b31f713aa36",
+    "version": "0.3.1"
   },
+  "acceptedReviews": [
+    "p02t011r01",
+    "p02t013r01"
+  ],
   "publicPreparation": {
     "repository": "claw0gang/antigravity-plugin",
-    "branch": "task/p02t009-release-preparation",
-    "base": "5c3dd9e41d2a6d01ec9cf9415ee08b34eba3a475",
-    "policy": "runtime-source-byte-identical; public package metadata, legal notices and release-facing documentation may differ and require package requalification"
+    "branch": "task/p02t014-release-preparation",
+    "base": "829a837407a5f554b0a7248adf6bd689af131bdd",
+    "policy": "runtime/source export bytes match exact accepted private subject; public package metadata, legal notices and release-facing documentation may differ and require package validation"
   },
   "compatibility": {
     "buildSdk": "2026.9.4",
     "minimumOpenClaw": "2026.9.2",
-    "correctedBehavioralBaseline": {
+    "acceptedTokyoBaseline": {
       "openclaw": "2026.9.4",
-      "agy": "1.2.6"
-    },
-    "openclaw2026_9_5": "isolated-package/runtime-qualification-pass"
+      "agy": "1.2.8"
+    }
   },
-  "runtimeInvariant": "Every src/** file is copied byte-for-byte from claw0gang/antigravity@b16e85f112453f5272248a7629a89787b7a23cd1.",
   "selectedPublicFiles": [
     ".gitignore",
+    "EXPORT-MANIFEST.json",
     "LICENSE",
     "NOTICE.md",
     "README.md",
@@ -40,6 +43,7 @@
     "package-lock.json",
     "package.json",
     "public-export.json",
+    "skills/antigravity-plugin/SKILL.md",
     "src/backend.ts",
     "src/cli/agy-process.ts",
     "src/cli/args.ts",
@@ -124,6 +128,7 @@
     "tests/qualification-launcher.test.ts",
     "tests/qualification-trust.test.ts",
     "tests/qualification.test.ts",
+    "tests/registration-mode.test.ts",
     "tests/replay-safety.test.ts",
     "tests/result-fidelity.test.ts",
     "tests/result.test.ts",
@@ -152,58 +157,21 @@
     "tools/verify-artifact.mjs",
     "tsconfig.json"
   ],
-  "generatedExportManifest": "public-export-manifest.json",
-  "artifact": {
+  "acceptedPrivateArtifact": {
     "package": "@claw0gang/antigravity",
-    "version": "0.3.0",
-    "buildSha256": "b46c19f075cff9efd29352b21df913eeb43fcea6fc34eb61093cee924bf05623",
-    "packageSha256": "4c1d3a5521dbd6c35142e3eeff02905f92c3c8c8db62434f0402b729738c23d8",
-    "packedTreeSha256": "ee50e68f47f8b211b50cf90ec767d83c5d058bfc728d7be3d8d8264b0d7815d0",
-    "publicSourceTreeSha256": "900ceaef2ea21d90c7b6e8d161160e3c5d9d8e173a6be4947e0a7635d33383a8",
-    "publicExportManifestSha256": "e4e720d6520607260ff7279a732f2d73fc38ae8836e979132b7af6d89050b5de",
-    "qualification": {
-      "openclaw": "2026.9.5",
-      "sourceExportIdentity": "passed",
-      "archiveInstalledIdentity": "passed",
-      "isolatedPluginInstall": "passed",
-      "isolatedPluginInspect": "passed",
-      "productionOpenClawChanged": false
-    }
+    "version": "0.3.1",
+    "buildSha256": "3ecefe2e17a1efbbe3644c80106f2d724498ef64c9b3180501b6c286452ea00f",
+    "packageSha256": "89bf841f0218d46f6be3b547a9f3cd0b8553ef8361b319bfc17387d037718795"
   },
-  "sourceValidation": {
-    "subject": "b16e85f112453f5272248a7629a89787b7a23cd1",
-    "result": "passed",
-    "checks": [
-      "npm ci",
-      "npm run build",
-      "npm test",
-      "npm run test:source",
-      "npm run test:build-tools",
-      "npm run pack:check"
-    ],
-    "note": "tests-only source fixture correction; runtime src/** unchanged from d3cfc24a0eed0ebfd2036879002e15b3350ca467"
-  },
-  "provenanceMetadata": {
-    "path": "EXPORT-MANIFEST.json",
-    "buildInput": false,
-    "packagePayload": false,
-    "reason": "Release provenance binds artifact digests after qualification and is intentionally excluded from deterministic build/export inputs to avoid a self-referential artifact identity."
+  "publicArtifact": {
+    "buildSha256": null,
+    "packageSha256": null,
+    "packedTreeSha256": null,
+    "validation": "pending"
   },
   "rollback": {
-    "knownGoodRelease": "v0.2.6",
-    "artifact": "claw0gang-antigravity-0.2.6.tgz",
-    "sha256": "2a0da789656b0b43b2c0eff9bd3fea338805b88cf96684969f94a74a5605f658"
+    "knownGoodRelease": "v0.3.0",
+    "packageSha256": "4c1d3a5521dbd6c35142e3eeff02905f92c3c8c8db62434f0402b729738c23d8"
   },
-  "publicDocumentation": {
-    "productName": "Antigravity Plugin",
-    "cliName": "agy",
-    "readmePurpose": "ClawHub installation/configuration guide with legal/upstream notices at the end",
-    "correctionFromAcceptedSubject": "README.md and RELEASE-NOTES.md publishing-language correction"
-  },
-  "qualifiedSource": {
-    "publicPreparationCommit": "bdbd8fbf6f9689869e3901f4c809b7b3453948a7",
-    "canonicalPrivateCommit": "b16e85f112453f5272248a7629a89787b7a23cd1",
-    "acceptedRuntimeCommit": "d3cfc24a0eed0ebfd2036879002e15b3350ca467",
-    "runtimeDeltaFromAccepted": "none; private correction changes only tests/fixtures/source-sdk.mjs"
-  }
+  "legalTermsChecked": "2026-09-23"
 }

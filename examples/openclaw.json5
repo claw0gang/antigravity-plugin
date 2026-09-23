@@ -13,14 +13,17 @@
           printTimeout: "30m",
           sandbox: true,
 
-          // Native AgentHarnessV2 attempts reject this flag. It exists only for
-          // the explicit antigravity-cli/* compatibility backend.
+          // Explicit permission bypass for both native and compatibility paths.
+          // Keep false unless the operator intentionally wants unrestricted AGY execution.
           dangerouslySkipPermissions: false,
+
+          // Required by the native strict runtime-identity contract. The AGY project
+          // must have a resource root containing this agent's OpenClaw workspace/cwd.
+          project: "EXACT-AGY-PROJECT-ID",
 
           // Optional AGY-native controls:
           // mode: "plan",
           // agent: "critic",
-          // project: "project-id",
           // newProject: false,
           // addDirs: ["/absolute/allowed/path"],
           // logFile: "/home/ubuntu/tmp/antigravity/agy.log",

@@ -1,45 +1,32 @@
-# Antigravity Plugin 0.3.0 release notes
+# Antigravity Plugin 0.3.1 release notes
 
-`0.3.0` is the Phase 2 native-harness release of the independent Antigravity Plugin for OpenClaw.
+`0.3.1` is a compatibility/usability patch on the accepted 0.3.0 native-harness release.
 
 ## Highlights
 
-- Primary `antigravity/*` execution uses OpenClaw `AgentHarnessV2`; `antigravity-cli/*` remains a disjoint generic CLI-backend compatibility path.
-- Ordinary OpenClaw subagent spawning on exact Antigravity Plugin models is supported for representable child policies.
-- Completed `agy` child output is delivered through OpenClaw's supported assistant-result contract and independently mirrored into the canonical transcript.
-- Qualified OpenClaw restrictions are translated into deterministic `agy`-native policy carriers; unsupported or ambiguous policy shapes remain fail-closed.
-- Live `agy` model discovery, exact model identity, exact conversation resume, image input, terminal tool evidence, and conservative replay fencing remain part of the native runtime.
-- `dangerouslySkipPermissions` remains explicit and default-off.
+- Fixes OpenClaw metadata/setup registration so `cli-metadata` and setup-only registration do not access runtime services unavailable in those phases; normal runtime registration remains unchanged.
+- Adds the bundled lightweight `antigravity-plugin` OpenClaw skill with installation, exact AGY project-binding, model-selection, sandbox and permission guidance.
+- Clarifies that native `antigravity/*` execution requires one exact AGY project whose resource root contains the OpenClaw attempt workspace/cwd; `newProject: true` is not a substitute for that strict identity binding.
+- Preserves the 0.3.0 runtime architecture: native `AgentHarnessV2`, disjoint `antigravity-cli/*` compatibility backend, live AGY model discovery, exact model/conversation identity, ordinary OpenClaw subagents, image input and fail-closed policy translation.
 
-## Compatibility
+## Compatibility and acceptance
 
-| Component | Release contract |
+| Component | Release contract / accepted baseline |
 | --- | --- |
 | OpenClaw plugin API | `>=2026.9.2` |
 | OpenClaw Gateway | `>=2026.9.2` |
 | Reproducible SDK build provenance | `2026.9.4` |
-| Corrected Phase 2 behavioral baseline | OpenClaw `2026.9.4`, `agy` `1.2.6` |
+| Pre-publication Tokyo acceptance | OpenClaw `2026.9.4`, AGY `1.2.8` |
 | Node.js | `>=22.12.0` |
 
-### OpenClaw 2026.9.5 status
-
-Isolated release qualification passed against OpenClaw `2026.9.5`: the packaged plugin loaded against the required public SDK subpaths, preserved the expected provider/catalog/harness/CLI registrations, matched the exact archive payload to the installed plugin tree, and passed an isolated plugin install/inspect cycle. This does not qualify OpenClaw itself, the production Gateway, or additional live `agy` behavior beyond the separately accepted behavioral baseline.
+The exact private subject `3b4801039fce4cb49780726839247b31f713aa36` passed independent product review and production-Tokyo pre-publication acceptance. The retained accepted private archive has SHA-256 `89bf841f0218d46f6be3b547a9f3cd0b8553ef8361b319bfc17387d037718795`. Tokyo inspection reported Antigravity 0.3.1 loaded with provider `antigravity`, CLI backend `antigravity-cli`, harness `antigravity`, clean doctor, eligible/model-visible bundled skill, healthy model discovery, and a real `antigravity/gemini-3.8-flash-low` run completing without fallback.
 
 ## Rollback
 
-The preserved known-good public release is `v0.2.6`.
-
-If `0.3.0` must be rolled back, use the canonical GitHub release artifact `claw0gang-antigravity-0.2.6.tgz`, verify SHA-256 `2a0da789656b0b43b2c0eff9bd3fea338805b88cf96684969f94a74a5605f658`, then reinstall that exact local artifact:
-
-```bash
-sha256sum claw0gang-antigravity-0.2.6.tgz
-openclaw plugins install ./claw0gang-antigravity-0.2.6.tgz --force --accept-capabilities
-```
-
-After rollback, inspect the installed plugin and restore the previously known-good OpenClaw/`agy` configuration if any `0.3.0`-specific configuration was introduced. Rollback does not authorize changing OpenClaw itself or bypassing upstream `agy` authentication/terms.
+The preserved known-good prior release is `v0.3.0`. The retained verified 0.3.0 archive SHA-256 is `4c1d3a5521dbd6c35142e3eeff02905f92c3c8c8db62434f0402b729738c23d8`.
 
 ## Packaging/provenance
 
-Canonical private release source is `b16e85f112453f5272248a7629a89787b7a23cd1`. Its only delta from accepted runtime commit `d3cfc24a0eed0ebfd2036879002e15b3350ca467` is the simulated source-SDK test fixture; runtime `src/**` is unchanged. Public package metadata, legal notices, and release-facing documentation are release-only bytes and are included in the final package build/test/export qualification before publication.
+Canonical private release source is `3b4801039fce4cb49780726839247b31f713aa36`. Runtime/source export files in this public preparation are copied from that exact subject. Public package metadata, legal notices, release notes and release-facing README text are distribution-only bytes and must be package-qualified before publication.
 
-No public merge, tag, npm publication, GitHub release, or ClawHub publication is implied by this preparation branch.
+No GitHub release or ClawHub publication is implied by the preparation branch alone.

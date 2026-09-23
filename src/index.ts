@@ -22,6 +22,8 @@ const antigravityPlugin = definePluginEntry({
   description: "Run Google Antigravity CLI as an OpenClaw native agent runtime",
   configSchema: antigravityConfigSchema,
   register(api: OpenClawPluginApi) {
+    // OpenClaw intentionally withholds api.runtime from metadata/setup-only loads.
+    if (api.registrationMode === "cli-metadata" || api.registrationMode === "setup-only") return;
     assertOpenClawCompatibility(api);
     const config = resolveAntigravityPluginConfig(api.pluginConfig);
     const inventoryOwner = new AgyHostInventoryOwner({ pluginConfig: config });
