@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 
+const skill = readFileSync(new URL("../skills/antigravity-plugin/SKILL.md", import.meta.url), "utf8");
+
 const pkg = JSON.parse(
   readFileSync(new URL("../package.json", import.meta.url), "utf8"),
 ) as {
@@ -46,4 +48,15 @@ test("package ships built runtime and lightweight provider discovery before pack
   assert.ok(!pkg.files?.includes("tools"));
   assert.equal(pkg.scripts?.prepack, "node tools/verify-artifact.mjs --quiet");
   assert.ok(existsSync(new URL("../dist/provider-discovery.js", import.meta.url)));
+});
+
+
+test("bundled skill teaches concise Antigravity subagent usage", () => {
+  assert.match(skill, /sessions_spawn/);
+  assert.match(skill, /subagent/i);
+  assert.match(skill, /antigravity\/\*/);
+  assert.match(skill, /antigravity-cli\/\*/);
+  assert.match(skill, /https:\/\/github\.com\/claw0gang\/antigravity-plugin/);
+  assert.doesNotMatch(skill, /openclaw plugins install/);
+  assert.ok(skill.length < 2000, "bundled skill must remain concise");
 });

@@ -1,14 +1,19 @@
 ---
 name: antigravity-plugin
-description: Runtime guidance for OpenClaw agents using the Antigravity plugin.
+description: Use the Antigravity OpenClaw runtime for delegated subagents.
 user-invocable: false
 ---
 
-# Antigravity Plugin
+# Antigravity subagents
 
-When using the Antigravity runtime:
+Use Antigravity through OpenClaw's normal subagent flow.
 
-- Use the requested `antigravity/*` model exactly; do not silently substitute another model or runtime.
-- Preserve the caller's workspace and configured permissions; do not broaden access or change project configuration.
-- Treat runtime or configuration errors as failures and report them instead of working around them by increasing authority.
-- Use `antigravity-cli/*` compatibility mode only when the operator explicitly selected it.
+- Delegate with `sessions_spawn` to an OpenClaw subagent configured with an exact `antigravity/*` model.
+- Keep the requested Antigravity model and runtime exact. If they are unavailable, report the failure instead of silently substituting another model or runtime.
+- Prefer the native `antigravity/*` runtime. Use `antigravity-cli/*` only when the operator explicitly selected compatibility mode.
+- Preserve the caller's workspace and access restrictions. Do not broaden permissions to make a spawn succeed.
+- Let OpenClaw manage orchestration, sessions, and subagent lifecycle; do not invoke `agy` directly to create or manage OpenClaw subagents.
+
+For installation, model discovery, AGY project binding, permissions, configuration examples, and troubleshooting, see:
+
+https://github.com/claw0gang/antigravity-plugin

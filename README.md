@@ -92,7 +92,7 @@ openclaw gateway restart
 
 ## Bundled OpenClaw skill
 
-Version 0.3.2 includes a lightweight `antigravity-plugin` skill containing runtime-use guardrails only. Installation and configuration guidance remains in this README.
+Version 0.3.2 includes a concise `antigravity-plugin` skill that tells OpenClaw agents how to use Antigravity-backed subagents through the normal `sessions_spawn` flow. Detailed installation, configuration, model discovery, AGY project binding, permissions and troubleshooting guidance remains in this README.
 
 Inspect it with:
 

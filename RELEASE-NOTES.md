@@ -1,21 +1,22 @@
 # Antigravity Plugin 0.3.2 release notes
 
-`0.3.2` is a narrow correction to the bundled OpenClaw skill introduced in 0.3.1. Runtime implementation behavior is unchanged.
+`0.3.2` corrects the bundled OpenClaw skill while leaving runtime implementation behavior unchanged.
 
 ## Changed
 
-- Replaces the oversized bundled skill with four runtime-only guardrails.
-- Removes installation, AGY authentication, project discovery/binding, local config-path, filesystem-expansion, permission-bypass, subprocess-implementation and troubleshooting guidance from the agent-facing skill.
-- Keeps human installation/configuration/security guidance in the README rather than the runtime skill.
+- The bundled `antigravity-plugin` skill now briefly explains how an OpenClaw agent uses Antigravity-backed subagents through the normal `sessions_spawn` flow.
+- It tells the agent to use an exact configured `antigravity/*` model, preserve caller restrictions, and avoid silent runtime/model substitution.
+- It keeps `antigravity-cli/*` as explicitly selected compatibility mode rather than an automatic fallback.
+- Detailed installation, configuration, model discovery, AGY project binding, permissions, examples and troubleshooting remain in the public repository documentation instead of being duplicated into the runtime skill.
 
 ## Unchanged
 
-No runtime implementation source is changed relative to accepted private 0.3.1 baseline `3b4801039fce4cb49780726839247b31f713aa36`.
+No runtime implementation source is changed relative to the accepted 0.3.2 runtime baseline.
 
 Private correction source:
 
 ```text
-claw0gang/antigravity@b2a0a21f7f64ffa2d6c1e7575ee44bc278ea01b7
+claw0gang/antigravity@8d20082d3cb175f521b1e78e234d7553e9bb8598
 ```
 
 Rollback release:
