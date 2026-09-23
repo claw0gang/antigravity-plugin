@@ -164,14 +164,14 @@
     "packageSha256": "89bf841f0218d46f6be3b547a9f3cd0b8553ef8361b319bfc17387d037718795"
   },
   "publicArtifact": {
-    "qualificationSourceCommit": "5ad9741b1adc1305a9d9caebe7cafc7028bfadfd",
-    "buildSha256": "b923b1cc715c58cbaa58cdcd987e77775b0c97520d57b6ec8f18b2aa5c54d7d1",
-    "packageSha256": "d69b504b6231925bffef9a0a02d36142fcd8fae80b0b3dc8c2b614d20d1e69ad",
-    "packageShasum": "e53db724e0d968f1035aeeb33deb9b636d0e50f4",
-    "packageIntegrity": "sha512-TkkLjASUp4a+6YBUaMMKbkaIjw/2LOGU/MT2cDcmGxzCEViS4xx1wxybWJEDoCL9iQbmtHS3o09jAr2v6i4+Aw==",
+    "qualificationSourceCommit": "7ed11ccc79ba9e706aad2861ae00dfba71c6d1cb",
+    "buildSha256": "af5a1968eac3c9cf4b61359429542ccfc29f1e754f807af4dae69c2d9247ad2c",
+    "packageSha256": "1fd4e07ffa5ac91b0202e7f5a6aa65cc86971b4a7ded13e00b9ea8c31a78105d",
+    "packageShasum": "db26b0d959ee0c427fe16f59a5f1b9d4d16c11fe",
+    "packageIntegrity": "sha512-EG8AbYEEK0/cXPoEdmToujzuLhFAnPqVsAMvAvmizsjpng0VASoUDU2SLxUdTA/kL7zLlxaXl84eAALUXLGRZA==",
     "fileCount": 154,
-    "size": 151033,
-    "unpackedSize": 654872,
+    "size": 151007,
+    "unpackedSize": 654890,
     "validation": "passed",
     "checks": [
       "npm ci",
@@ -181,7 +181,7 @@
       "clawhub package validate",
       "clawhub package publish --dry-run"
     ],
-    "retainedPath": "/home/ubuntu/tmp/local-exec/retained/antigravity/p02/p02t014/pack-002/claw0gang-antigravity-0.3.1.tgz"
+    "retainedPath": "/home/ubuntu/tmp/local-exec/retained/antigravity/p02/p02t014/pack-003/claw0gang-antigravity-0.3.1.tgz"
   },
   "rollback": {
     "knownGoodRelease": "v0.3.0",
@@ -200,9 +200,9 @@
     "family": "code-plugin",
     "name": "@claw0gang/antigravity",
     "version": "0.3.1",
-    "commit": "5ad9741b1adc1305a9d9caebe7cafc7028bfadfd",
+    "commit": "7ed11ccc79ba9e706aad2861ae00dfba71c6d1cb",
     "files": 154,
-    "totalBytes": 151033,
+    "totalBytes": 151007,
     "validationStatus": "pass",
     "validationIssueCount": 0
   }
