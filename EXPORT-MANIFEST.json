@@ -1,6 +1,6 @@
 {
   "schema": "antigravity-public-export/v1",
-  "status": "prepared-awaiting-package-validation",
+  "status": "qualified-awaiting-independent-critic",
   "canonical": {
     "repository": "claw0gang/antigravity",
     "commit": "3b4801039fce4cb49780726839247b31f713aa36",
@@ -164,14 +164,32 @@
     "packageSha256": "89bf841f0218d46f6be3b547a9f3cd0b8553ef8361b319bfc17387d037718795"
   },
   "publicArtifact": {
-    "buildSha256": null,
-    "packageSha256": null,
-    "packedTreeSha256": null,
-    "validation": "pending"
+    "qualificationSourceCommit": "97ff4e483785fcf1f7e5187bd00b0dec2888a79f",
+    "buildSha256": "c38c6ea7469e5b23fd4d57318356385bf4abe7918b42007d9225adefd0486b92",
+    "packageSha256": "bc5ed80437ef1b71ffc341d27a68094118ad38b9d1f5f16db76c3de02c960883",
+    "packageShasum": "bba35e47e630793bd53ba3cd57d3e1d55f7f9758",
+    "packageIntegrity": "sha512-NdM2LLwssFZyEu+VL39gwTnPfAIJRwW2dOdADTwu6fY8rKJUgVQhRJzGoSbsqWFvU/YBoAg4le/YfFoTtjudsg==",
+    "fileCount": 154,
+    "size": 152701,
+    "unpackedSize": 661676,
+    "validation": "passed",
+    "checks": [
+      "npm ci",
+      "npm run check",
+      "npm run pack:check",
+      "npm pack"
+    ],
+    "retainedPath": "/home/ubuntu/tmp/local-exec/retained/antigravity/p02/p02t014/pack-001/claw0gang-antigravity-0.3.1.tgz"
   },
   "rollback": {
     "knownGoodRelease": "v0.3.0",
     "packageSha256": "4c1d3a5521dbd6c35142e3eeff02905f92c3c8c8db62434f0402b729738c23d8"
   },
-  "legalTermsChecked": "2026-09-23"
+  "legalTermsChecked": "2026-09-23",
+  "provenanceMetadata": {
+    "path": "EXPORT-MANIFEST.json",
+    "buildInput": false,
+    "packagePayload": false,
+    "reason": "Release provenance records post-qualification artifact identity and is excluded from the deterministic private public-export list and npm package payload."
+  }
 }
