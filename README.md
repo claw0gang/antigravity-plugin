@@ -2,7 +2,7 @@
 
 Use models available through Google Antigravity CLI (`agy`) as native OpenClaw agent runtimes.
 
-Antigravity Plugin 0.3.1 connects OpenClaw to an existing `agy` installation while keeping OpenClaw responsible for orchestration, sessions, agents and subagents. `agy` remains responsible for its native model execution, tools, authentication, projects and conversations.
+Antigravity Plugin 0.3.2 connects OpenClaw to an existing `agy` installation while keeping OpenClaw responsible for orchestration, sessions, agents and subagents. `agy` remains responsible for its native model execution, tools, authentication, projects and conversations.
 
 ## What you get
 
@@ -92,7 +92,7 @@ openclaw gateway restart
 
 ## Bundled OpenClaw skill
 
-Version 0.3.1 includes the `antigravity-plugin` skill with configuration and usage guidance.
+Version 0.3.2 includes a lightweight `antigravity-plugin` skill containing runtime-use guardrails only. Installation and configuration guidance remains in this README.
 
 Inspect it with:
 
@@ -475,7 +475,7 @@ Check OpenClaw restrictions, AGY project scope, sandbox configuration and `agy`-
 
 # Compatibility
 
-Antigravity Plugin `0.3.1` declares:
+Antigravity Plugin `0.3.2` declares:
 
 | Component | Requirement |
 | --- | --- |
@@ -495,41 +495,41 @@ The build SDK version is provenance, not a requirement to run exactly that OpenC
 The previous known-good public release is:
 
 ```text
-v0.3.0
+v0.3.1
 ```
 
 Canonical artifact:
 
 ```text
-claw0gang-antigravity-0.3.0.tgz
+claw0gang-antigravity-0.3.1.tgz
 ```
 
 SHA-256:
 
 ```text
-4c1d3a5521dbd6c35142e3eeff02905f92c3c8c8db62434f0402b729738c23d8
+1fd4e07ffa5ac91b0202e7f5a6aa65cc86971b4a7ded13e00b9ea8c31a78105d
 ```
 
 Verify it before reinstalling:
 
 ```bash
-sha256sum claw0gang-antigravity-0.3.0.tgz
+sha256sum claw0gang-antigravity-0.3.1.tgz
 ```
 
 Then:
 
 ```bash
-openclaw plugins install ./claw0gang-antigravity-0.3.0.tgz --force --accept-capabilities
+openclaw plugins install ./claw0gang-antigravity-0.3.1.tgz --force --accept-capabilities
 ```
 
 ---
 
 # Release provenance
 
-Antigravity Plugin `0.3.1` is based on the accepted private release source:
+Antigravity Plugin `0.3.2` is derived from the private correction source:
 
 ```text
-claw0gang/antigravity@3b4801039fce4cb49780726839247b31f713aa36
+claw0gang/antigravity@41f9080d6f82894bdfd44ac95ed437665304c768
 ```
 
 The exact qualified public package source commit and artifact digests are recorded in `EXPORT-MANIFEST.json`.
