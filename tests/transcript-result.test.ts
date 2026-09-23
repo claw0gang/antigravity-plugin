@@ -1,9 +1,49 @@
 import assert from "node:assert/strict";
+import { registerHooks } from "node:module";
 import test from "node:test";
 
 import type { AgentHarnessAttemptParamsV2 } from "openclaw/plugin-sdk/agent-harness-runtime";
 import type { AntigravityAttemptResult } from "../src/harness/result.ts";
-import { persistAntigravityCompletedAssistant } from "../src/harness/transcript-result.ts";
+const transcriptHostRoot = new URL("../src/host/", import.meta.url).href;
+const transcriptSdkFixture = `data:text/javascript,${encodeURIComponent(`
+export function runAgentHarnessBeforeMessageWriteHook(params) {
+  const message = params.message;
+  const sourceText =
+    params.prepareAssistantTranscriptMessage &&
+    message?.role === "assistant" &&
+    message?.display !== false &&
+    Array.isArray(message?.content)
+      ? message.content
+          .filter((part) => part?.type === "text" && typeof part.text === "string")
+          .map((part) => part.text)
+          .join("\\n")
+      : undefined;
+  return message?.role === "assistant" &&
+    message?.display !== false &&
+    sourceText !== undefined &&
+    params.prepareAssistantTranscriptMessage
+    ? params.prepareAssistantTranscriptMessage(message, sourceText)
+    : message;
+}
+`)}`;
+
+// These are transcript persistence unit tests with a fake append runtime. Keep
+// the OpenClaw before-write hook deterministic too; actual SDK compatibility is
+// covered by the package/compatibility gates rather than this fixture test.
+registerHooks({
+  resolve(specifier, context, nextResolve) {
+    if (
+      specifier === "openclaw/plugin-sdk/agent-harness-runtime" &&
+      context.parentURL?.startsWith(transcriptHostRoot)
+    ) {
+      return nextResolve(transcriptSdkFixture, context);
+    }
+    return nextResolve(specifier, context);
+  },
+});
+
+const { persistAntigravityCompletedAssistant } =
+  await import("../src/harness/transcript-result.ts");
 import type { OpenClawTranscriptAppendParams } from "../src/host/transcript.ts";
 
 function completedResult(text = "native answer"): AntigravityAttemptResult {
