@@ -532,11 +532,7 @@ Antigravity Plugin `0.3.1` is based on the accepted private release source:
 claw0gang/antigravity@3b4801039fce4cb49780726839247b31f713aa36
 ```
 
-Qualified public shipped-byte commit:
-
-```text
-97ff4e483785fcf1f7e5187bd00b0dec2888a79f
-```
+The exact qualified public package source commit and artifact digests are recorded in `EXPORT-MANIFEST.json`.
 
 Detailed release evidence is recorded in:
 
