@@ -15,7 +15,7 @@ No runtime implementation source is changed relative to accepted private 0.3.1 b
 Private correction source:
 
 ```text
-claw0gang/antigravity@41f9080d6f82894bdfd44ac95ed437665304c768
+claw0gang/antigravity@b2a0a21f7f64ffa2d6c1e7575ee44bc278ea01b7
 ```
 
 Rollback release:

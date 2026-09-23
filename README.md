@@ -529,7 +529,7 @@ openclaw plugins install ./claw0gang-antigravity-0.3.1.tgz --force --accept-capa
 Antigravity Plugin `0.3.2` is derived from the private correction source:
 
 ```text
-claw0gang/antigravity@41f9080d6f82894bdfd44ac95ed437665304c768
+claw0gang/antigravity@b2a0a21f7f64ffa2d6c1e7575ee44bc278ea01b7
 ```
 
 The exact qualified public package source commit and artifact digests are recorded in `EXPORT-MANIFEST.json`.

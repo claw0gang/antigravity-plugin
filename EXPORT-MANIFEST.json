@@ -1,9 +1,9 @@
 {
   "schema": "antigravity-public-export/v1",
-  "status": "qualified-awaiting-independent-critic",
+  "status": "candidate-awaiting-requalification",
   "canonical": {
     "repository": "claw0gang/antigravity",
-    "commit": "41f9080d6f82894bdfd44ac95ed437665304c768",
+    "commit": "b2a0a21f7f64ffa2d6c1e7575ee44bc278ea01b7",
     "version": "0.3.2"
   },
   "acceptedReviews": [],
@@ -159,7 +159,7 @@
     "version": "0.3.2",
     "sourceBaseline": "3b4801039fce4cb49780726839247b31f713aa36",
     "correctionSource": "b2a0a21f7f64ffa2d6c1e7575ee44bc278ea01b7",
-    "qualification": "package-source correction validated on aphenon-tokyo"
+    "qualification": "pending fresh package qualification after provenance correction"
   },
   "rollback": {
     "knownGoodRelease": "v0.3.1",
@@ -171,23 +171,5 @@
     "buildInput": false,
     "packagePayload": false,
     "reason": "Release provenance records post-qualification artifact identity and is excluded from the npm package payload."
-  },
-  "publicArtifact": {
-    "qualificationSourceCommit": "e589d78733df027b15208561b2d65e4cf80f39c1",
-    "buildSha256": "2a6b594a47d1d64e6aed4a57355cf83e66b3f2a40914706dfa90143a031f7261",
-    "packageSha256": "786e8cc2395af560328c1008f21a5d75984388a82f29c10214b7438ccdcbacdc",
-    "packageShasum": "064b7ff7bbf186363a287aa9665779391f6bb625",
-    "packageIntegrity": "sha512-Kp8PPehkPo/IlnItNkiorWFbvsngTEKFdfPIIyAJb0sk/Hcv4uCCE2pG12xPRPpNKq1EJEV6/0mAcc2WUVskOw==",
-    "fileCount": 154,
-    "size": 150144,
-    "unpackedSize": 651838,
-    "validation": "passed",
-    "checks": [
-      "npm ci",
-      "npm run check",
-      "npm run pack:check",
-      "npm pack"
-    ],
-    "retainedPath": "/home/ubuntu/tmp/local-exec/retained/antigravity/p02/p02t015/pack-002/claw0gang-antigravity-0.3.2.tgz"
   }
 }
