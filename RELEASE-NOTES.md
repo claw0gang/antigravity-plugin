@@ -1,28 +1,38 @@
-# Antigravity Plugin 0.3.2 release notes
+# Antigravity Plugin 0.3.3 release notes
 
-`0.3.2` corrects the bundled OpenClaw skill while leaving runtime implementation behavior unchanged.
+`0.3.3` adds the comprehensive human/agent usage manual and configuration guidance requested for Antigravity Plugin. Runtime implementation behavior is unchanged.
 
 ## Changed
 
-- The bundled `antigravity-plugin` skill now briefly explains how an OpenClaw agent uses Antigravity-backed subagents through the normal `sessions_spawn` flow.
-- It tells the agent to use an exact configured `antigravity/*` model, preserve caller restrictions, and avoid silent runtime/model substitution.
-- It keeps `antigravity-cli/*` as explicitly selected compatibility mode rather than an automatic fallback.
-- Detailed installation, configuration, model discovery, AGY project binding, permissions, examples and troubleshooting remain in the public repository documentation instead of being duplicated into the runtime skill.
+- Added `docs/USER-GUIDE.md` covering every supported plugin configuration field and major released feature.
+- Simplified the README into a concise installation and quick-start entry point.
+- Documented normal `accept-edits` and `plan` usage, AGY project/workspace binding, models, sessions, images, permissions and troubleshooting.
+- Documented the current native `agent` carrier limitation and native fail-closed OpenClaw restriction behavior.
+- Updated the bundled agent skill to require absolute paths for AGY native file tools inside the authorized workspace/project scope.
+- Clarified that plugin configuration is persistent and does not need to be rewritten for each task/model.
+- Restored the categorical warning for individual Antigravity OAuth access through third-party software such as OpenClaw.
 
 ## Unchanged
 
-No runtime implementation source is changed relative to the accepted 0.3.2 runtime baseline.
+No runtime implementation source changed as part of the Round-2 correction.
 
-Private correction source:
+Accepted private source:
 
 ```text
-claw0gang/antigravity@8d20082d3cb175f521b1e78e234d7553e9bb8598
+claw0gang/antigravity@d350d8bc5f25f58ae3449b5846698b89c5f012b6
+```
+
+Accepted review:
+
+```text
+p02t017r01 — Round 2 PASS
+state 80df56f70833bbc1ff50b1159ff9c9a29bf15ef4
 ```
 
 Rollback release:
 
 ```text
-v0.3.1
-claw0gang-antigravity-0.3.1.tgz
-SHA-256 1fd4e07ffa5ac91b0202e7f5a6aa65cc86971b4a7ded13e00b9ea8c31a78105d
+v0.3.2
+claw0gang-antigravity-0.3.2.tgz
+SHA-256 e3f931f02e47443da14369fe6fd44b0c3abf0501a9dea86fc8603f7746372b84
 ```

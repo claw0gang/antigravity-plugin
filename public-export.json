@@ -7,6 +7,7 @@
     "docs/ARCHITECTURE.md",
     "docs/BUILD.md",
     "docs/QUALIFICATION.md",
+    "docs/USER-GUIDE.md",
     "docs/ROADMAP.md",
     "docs/phase2/ACCEPTANCE.md",
     "docs/phase2/check_contract.py",

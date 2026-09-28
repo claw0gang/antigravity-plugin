@@ -6,14 +6,16 @@ user-invocable: false
 
 # Antigravity subagents
 
-Use Antigravity through OpenClaw's normal subagent flow.
+Use Antigravity through OpenClaw's normal subagent lifecycle.
 
-- Delegate with `sessions_spawn` to an OpenClaw subagent configured with an exact `antigravity/*` model.
-- Keep the requested Antigravity model and runtime exact. If they are unavailable, report the failure instead of silently substituting another model or runtime.
-- Prefer the native `antigravity/*` runtime. Use `antigravity-cli/*` only when the operator explicitly selected compatibility mode.
-- Preserve the caller's workspace and access restrictions. Do not broaden permissions to make a spawn succeed.
-- Let OpenClaw manage orchestration, sessions, and subagent lifecycle; do not invoke `agy` directly to create or manage OpenClaw subagents.
+- Delegate with `sessions_spawn` using the exact requested `antigravity/*` model. Do not silently substitute another model or runtime.
+- Prefer native `antigravity/*`. Use `antigravity-cli/*` only when the operator explicitly selected compatibility mode.
+- Let OpenClaw own spawn, yield/completion, sessions and routing. Do not invoke `agy` directly to create or manage OpenClaw subagents.
+- Preserve the caller's workspace and access restrictions. Do not change project roots, `addDirs`, sandbox settings or permissions to make a task succeed.
+- For AGY native file tools, use absolute paths inside the authorized OpenClaw workspace / AGY project scope. Do not assume relative paths will be accepted.
+- If AGY reports a validation, sandbox, permission or runtime failure, report it. Do not broaden authority or enable `dangerouslySkipPermissions` as a workaround.
+- Model selection is per task/spawn; plugin configuration is persistent and does not need to be rewritten for each model.
 
-For installation, model discovery, AGY project binding, permissions, configuration examples, and troubleshooting, see:
+Human setup and full configuration reference:
 
-https://github.com/claw0gang/antigravity-plugin
+https://github.com/claw0gang/antigravity-plugin/blob/main/docs/USER-GUIDE.md

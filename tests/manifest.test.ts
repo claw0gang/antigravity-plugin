@@ -121,3 +121,16 @@ test("compatibility manifest exposes exact Gemini 3.8 ids and no Gemini aliases"
     assert.ok(!ids.has(alias), `removed Gemini alias still present: ${alias}`);
   }
 });
+
+test("every supported config key has operator-facing help text", () => {
+  const properties = manifest.configSchema?.properties ?? {};
+  for (const key of [
+    "command", "printTimeout", "sandbox", "dangerouslySkipPermissions", "mode",
+    "agent", "project", "newProject", "addDirs", "logFile",
+  ]) {
+    assert.ok(properties[key]?.description?.trim(), `missing description for ${key}`);
+  }
+  assert.match(properties.mode?.description ?? "", /accept-edits/);
+  assert.match(properties.mode?.description ?? "", /plan/);
+  assert.match(properties.project?.description ?? "", /workspace\/cwd/i);
+});

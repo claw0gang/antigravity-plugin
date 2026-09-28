@@ -35,38 +35,42 @@
       "command": {
         "type": "string",
         "minLength": 1,
-        "description": "Antigravity CLI command. Defaults to agy on PATH."
+        "description": "AGY executable name or path. Defaults to agy on PATH."
       },
       "printTimeout": {
         "type": "string",
         "minLength": 1,
-        "description": "Value passed to agy --print-timeout."
+        "description": "AGY --print-timeout value. Defaults to 30m."
       },
       "sandbox": {
         "type": "boolean",
-        "description": "Pass --sandbox to agy."
+        "description": "Pass --sandbox to AGY. Enabled by default."
       },
       "dangerouslySkipPermissions": {
         "type": "boolean",
-        "description": "Explicitly pass --dangerously-skip-permissions to AGY headless execution for both the native harness and compatibility CLI, requesting always-proceed permission mode for native tools. Disabled by default; use only for intentionally unrestricted execution."
+        "description": "Pass --dangerously-skip-permissions to the native harness and compatibility CLI, requesting AGY always-proceed permission mode. Disabled by default; use only for intentionally unrestricted execution."
       },
       "mode": {
         "type": "string",
         "enum": [
           "accept-edits",
           "plan"
-        ]
+        ],
+        "description": "AGY execution mode: accept-edits for normal file-editing work or plan for planning-only work. If omitted, AGY uses its own default review behavior."
       },
       "agent": {
         "type": "string",
-        "minLength": 1
+        "minLength": 1,
+        "description": "Optional AGY native agent name passed with --agent. Compatibility CLI can use it directly; native antigravity/* requires a current exact qualified native-agent definition carrier and rejects the setting when that carrier is unavailable."
       },
       "project": {
         "type": "string",
-        "minLength": 1
+        "minLength": 1,
+        "description": "Exact AGY project ID. Required by native antigravity/*; a project resource root must contain the OpenClaw workspace/cwd."
       },
       "newProject": {
-        "type": "boolean"
+        "type": "boolean",
+        "description": "Pass --new-project. Do not combine with project; it is not a substitute for the native antigravity/* project binding."
       },
       "addDirs": {
         "type": "array",
@@ -74,11 +78,13 @@
           "type": "string",
           "minLength": 1
         },
-        "uniqueItems": true
+        "uniqueItems": true,
+        "description": "Extra directories passed to AGY with --add-dir. Add only paths the workload needs."
       },
       "logFile": {
         "type": "string",
-        "minLength": 1
+        "minLength": 1,
+        "description": "Optional path passed to AGY --log-file; the Gateway must be able to write it."
       }
     }
   },

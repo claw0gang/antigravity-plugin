@@ -3,6 +3,10 @@ import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 
 const skill = readFileSync(new URL("../skills/antigravity-plugin/SKILL.md", import.meta.url), "utf8");
+const guide = readFileSync(new URL("../docs/USER-GUIDE.md", import.meta.url), "utf8");
+const publicExport = JSON.parse(
+  readFileSync(new URL("../public-export.json", import.meta.url), "utf8"),
+) as { files?: string[] };
 
 const pkg = JSON.parse(
   readFileSync(new URL("../package.json", import.meta.url), "utf8"),
@@ -23,7 +27,7 @@ const pkg = JSON.parse(
 };
 
 test("minimum OpenClaw runtime range stays distinct from exact SDK build provenance", () => {
-  assert.equal(pkg.version, "0.3.2");
+  assert.equal(pkg.version, "0.3.3");
   assert.equal(pkg.openclaw?.compat?.pluginApi, ">=2026.9.2");
   assert.equal(pkg.openclaw?.compat?.minGatewayVersion, ">=2026.9.2");
   assert.equal(pkg.openclaw?.build?.openclawVersion, "2026.9.4");
@@ -42,6 +46,7 @@ test("package ships built runtime and lightweight provider discovery before pack
   assert.ok(pkg.files?.includes("skills"));
   assert.ok(pkg.files?.includes("openclaw.plugin.json"));
   assert.ok(pkg.files?.includes("README.md"));
+  assert.ok(pkg.files?.includes("docs/USER-GUIDE.md"));
   assert.ok(pkg.files?.includes("docs/BUILD.md"));
   assert.ok(pkg.files?.includes("docs/QUALIFICATION.md"));
   assert.ok(!pkg.files?.includes("docs"));
@@ -56,7 +61,27 @@ test("bundled skill teaches concise Antigravity subagent usage", () => {
   assert.match(skill, /subagent/i);
   assert.match(skill, /antigravity\/\*/);
   assert.match(skill, /antigravity-cli\/\*/);
+  assert.match(skill, /absolute paths/i);
+  assert.match(skill, /workspace \/ AGY project scope/i);
+  assert.match(skill, /configuration is persistent/i);
   assert.match(skill, /https:\/\/github\.com\/claw0gang\/antigravity-plugin/);
   assert.doesNotMatch(skill, /openclaw plugins install/);
   assert.ok(skill.length < 2000, "bundled skill must remain concise");
+});
+
+test("user guide covers the complete supported configuration and core usage", () => {
+  for (const key of [
+    "command", "printTimeout", "sandbox", "dangerouslySkipPermissions", "mode",
+    "agent", "project", "newProject", "addDirs", "logFile",
+  ]) {
+    assert.match(guide, new RegExp(key), `missing config key: ${key}`);
+  }
+  assert.match(guide, /accept-edits/);
+  assert.match(guide, /plan/);
+  assert.match(guide, /sessions_spawn/);
+  assert.match(guide, /absolute paths/i);
+  assert.match(guide, /images/i);
+  assert.match(guide, /antigravity-cli\/\*/);
+  assert.ok(publicExport.files?.includes("docs/USER-GUIDE.md"));
+  assert.ok(guide.length < 18000, "user guide must remain comprehensive but concise");
 });

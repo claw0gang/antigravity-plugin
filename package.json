@@ -1,6 +1,6 @@
 {
   "name": "@claw0gang/antigravity",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "OpenClaw AgentHarnessV2 runtime for Google Antigravity CLI",
   "type": "module",
   "main": "./dist/index.js",
@@ -10,6 +10,7 @@
     "skills",
     "openclaw.plugin.json",
     "README.md",
+    "docs/USER-GUIDE.md",
     "docs/BUILD.md",
     "docs/QUALIFICATION.md",
     "LICENSE",
