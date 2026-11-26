@@ -34,12 +34,14 @@ function resultLine(params?: {
   status?: string;
   response?: string;
   structuredOutput?: unknown;
+  finishedReason?: unknown;
 }) {
   return JSON.stringify({
     event: "result",
     result: {
       conversation_id: params?.conversationId ?? "conversation-1",
       status: params?.status ?? "SUCCESS",
+      ...(params?.finishedReason !== undefined ? { finished_reason: params.finishedReason } : {}),
       response: params?.response ?? "done\n",
       duration_seconds: 1.25,
       num_turns: 1,
@@ -72,6 +74,41 @@ test("strict parser accepts documented init, tool and result events", () => {
   );
   assert.equal(tool.event, "step_update");
   assert.equal(parseAgyStreamLine(resultLine()).event, "result");
+});
+
+test("optional finished_reason preserves documented non-normal terminals and partial steps", () => {
+  const normal = parseAgyStreamLine(resultLine());
+  assert.ok(normal.event === "result");
+  assert.equal(Object.hasOwn(normal.result, "finished_reason"), false);
+  for (const reason of ["print_timeout", "interrupted", "error"]) {
+    for (const status of ["SUCCESS", "WAITING", "RUNNING"]) {
+      const stream = new AgyStreamAccumulator();
+      stream.consumeLine(initLine());
+      stream.consumeLine(stepLine("ACTIVE"));
+      const stopped = JSON.parse(resultLine({ status, response: "", finishedReason: reason }));
+      stopped.result.error = "native stop diagnostic";
+      stream.consumeLine(JSON.stringify(stopped));
+      const snapshot = stream.finalize();
+      assert.equal(snapshot.result.finished_reason, reason);
+      assert.equal(snapshot.result.status, status);
+      assert.equal(snapshot.result.error, "native stop diagnostic");
+      assert.equal(snapshot.assistantText, "part");
+      assert.equal(snapshot.stepUpdates[0]?.state, "ACTIVE");
+    }
+  }
+});
+
+test("unknown or malformed finished_reason fails closed with its field diagnostic", () => {
+  for (const reason of [null, 0, false, {}, [], "", "normal", "future_stop"]) {
+    assert.throws(() => parseAgyStreamLine(resultLine({ finishedReason: reason })),
+      (error: unknown) => error instanceof AgyStreamProtocolError &&
+        error.code === "malformed_event" && /result\.finished_reason/.test(error.message));
+    const stream = new AgyStreamAccumulator();
+    stream.consumeLine(initLine());
+    // Direct typed callers cannot bypass the same validation with a cast.
+    assert.throws(() => stream.consume(JSON.parse(resultLine({ finishedReason: reason }))),
+      protocolCode("malformed_event"));
+  }
 });
 
 test("assistant deltas preserve ordered repeated content without deduplication", () => {

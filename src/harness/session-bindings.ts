@@ -1,13 +1,10 @@
 import { randomUUID } from "node:crypto";
-import type { OpenClawPluginApi } from "../host/types.js";
+import { guardSessionAuthority, sessionPatchAuthority, type SessionOwnerAssertion,
+  type AntigravitySessionRuntime, type RuntimeSessionEntry } from "../host/session-runtime.js";
+export type { AntigravitySessionRuntime } from "../host/session-runtime.js";
 
 export const ANTIGRAVITY_SESSION_BINDING_EXTENSION = "antigravity";
 const SCHEMA = "antigravity-native-session-binding/v2";
-
-type SessionRuntime = OpenClawPluginApi["runtime"]["agent"]["session"];
-export type AntigravitySessionRuntime = Pick<SessionRuntime,
-  "getSessionEntry" | "listSessionEntries" | "patchSessionEntry">;
-type RuntimeSessionEntry = NonNullable<ReturnType<AntigravitySessionRuntime["getSessionEntry"]>>;
 
 export type AntigravityOpenClawSession = {
   openclawSessionId: string;
@@ -22,7 +19,8 @@ export type AntigravitySessionBinding = CanonicalIdentity & {
   harnessId: "antigravity";
   conversationId: string;
   modelId: string;
-  /** Trusted non-secret identity of account, runtime, project and native agent definition. */
+  /** Opaque binding/lease continuity key, retained when resuming native v2 rows.
+   * It does not identify an AGY account, project or authentication generation. */
   scopeKey: string;
   epoch: string;
   lifecycleRevision: string;
@@ -52,17 +50,20 @@ export type AntigravitySessionLease = Readonly<CanonicalIdentity & {
   modelId: string;
   scopeKey: string;
   binding?: AntigravitySessionBinding;
-  assertActive: () => void;
+  assertActive: SessionOwnerAssertion;
+  /** Fresh full-entry validation; the synchronous guard owns only local/host authority. */
+  assertCurrent: () => Promise<void>;
 }>;
 export type BeginAntigravitySessionAttempt = AntigravityOpenClawSession & {
   modelId: string;
   scopeKey: string;
-  assertActive: () => void;
+  assertActive: SessionOwnerAssertion;
 };
 export type BindFreshAntigravitySessionParams = AntigravityOpenClawSession & {
   conversationId: string;
   modelId?: string;
   lease?: AntigravitySessionLease;
+  /** Storage-free callback liveness, composed with the original lease owner. */
   assertActive?: () => void;
 };
 
@@ -99,9 +100,18 @@ function invalid(sessionId: string): Error {
 function generation(entry: RuntimeSessionEntry): string {
   return exactString(entry.lifecycleRevision, "OpenClaw host lifecycle revision");
 }
+function assertNativeSessionOwner(entry: RuntimeSessionEntry): void {
+  if (Object.hasOwn(entry.cliSessionIds ?? {}, "antigravity-cli")) {
+    throw new Error("ANTIGRAVITY cannot convert an antigravity-cli session; explicitly reset the host session or start a new session");
+  }
+  if (entry.agentHarnessId !== undefined && entry.agentHarnessId !== "antigravity") {
+    throw new Error("ANTIGRAVITY canonical session belongs to another harness; explicit host reset or a new session is required");
+  }
+}
 function parseEnvelope(entry: RuntimeSessionEntry, identity: CanonicalIdentity): Envelope | undefined {
   identity = canonicalIdentity(identity);
   if (entry.sessionId !== identity.openclawSessionId) throw invalid(identity.openclawSessionId);
+  assertNativeSessionOwner(entry);
   const extensions = entry.pluginExtensions;
   if (extensions === undefined) return undefined;
   const slots = record(extensions);
@@ -110,7 +120,7 @@ function parseEnvelope(entry: RuntimeSessionEntry, identity: CanonicalIdentity):
   const raw = record(slots[ANTIGRAVITY_SESSION_BINDING_EXTENSION]);
   try {
     if (!raw) throw invalid(identity.openclawSessionId);
-    // v1 cannot establish authority scope or lifecycle provenance. It is not
+    // v1 cannot establish canonical lifecycle provenance. It is not
     // truthfully migratable from its bytes alone, even when structurally valid.
     if (raw.schema === "antigravity-native-session-binding/v1") {
       throw invalid(identity.openclawSessionId);
@@ -131,7 +141,7 @@ function parseEnvelope(entry: RuntimeSessionEntry, identity: CanonicalIdentity):
       onlyKeys(b, BINDING_KEYS);
       binding = { ...identity, schema: SCHEMA, harnessId: "antigravity", epoch, lifecycleRevision,
         conversationId: exactString(b.conversationId, "AGY conversation id"),
-        modelId: exactString(b.modelId, "AGY exact model id"), scopeKey: exactString(b.scopeKey, "AGY authority scope") };
+        modelId: exactString(b.modelId, "AGY exact model id"), scopeKey: exactString(b.scopeKey, "native binding scope") };
     }
     let activeAttempt: Envelope["activeAttempt"];
     if (Object.hasOwn(raw, "activeAttempt")) {
@@ -139,7 +149,7 @@ function parseEnvelope(entry: RuntimeSessionEntry, identity: CanonicalIdentity):
       if (!a) throw invalid(identity.openclawSessionId);
       onlyKeys(a, ["token", "modelId", "scopeKey"]);
       activeAttempt = { token: exactString(a.token, "attempt token"), modelId: exactString(a.modelId, "AGY exact model id"),
-        scopeKey: exactString(a.scopeKey, "AGY authority scope") };
+        scopeKey: exactString(a.scopeKey, "native binding scope") };
       if (raw.resetPending || (binding && (binding.modelId !== activeAttempt.modelId || binding.scopeKey !== activeAttempt.scopeKey))) {
         throw invalid(identity.openclawSessionId);
       }
@@ -175,54 +185,63 @@ export class AntigravitySessionBindings {
   }
   #assertAtomic(): void {
     if (!this.#capabilities.atomicMutation?.evidence?.trim()
-      || typeof this.#runtime.getSessionEntry !== "function" || typeof this.#runtime.patchSessionEntry !== "function") {
-      throw new Error("ANTIGRAVITY canonical session mutation requires qualified host cross-process snapshot CAS and assertCommitAllowed; t004/P05 qualification required before launch or reset");
+      || typeof this.#runtime.getSessionEntryAsync !== "function" || typeof this.#runtime.prepareSessionEntryPatch !== "function"
+      || typeof this.#runtime.withCurrentSessionEntry !== "function") {
+      throw new Error("ANTIGRAVITY canonical session mutation requires qualified host cross-process snapshot CAS and prepared commit authority; t004/P05 qualification required before launch or reset");
     }
   }
-  #get(identity: CanonicalIdentity): RuntimeSessionEntry {
-    const entry = this.#runtime.getSessionEntry({ sessionKey: identity.openclawSessionKey,
-      agentId: identity.agentId, storePath: identity.storePath, readConsistency: "latest" });
-    if (!entry || entry.sessionId !== identity.openclawSessionId) {
-      throw new Error(`OpenClaw canonical session ${identity.openclawSessionId} is missing or changed identity; explicit host reset required`);
+  async #withCurrentEntry<T>(identity: CanonicalIdentity, consume: (entry: RuntimeSessionEntry) => T): Promise<T> {
+    if (typeof this.#runtime.withCurrentSessionEntry !== "function") {
+      throw new Error("ANTIGRAVITY requires a public current-session callback before execution or delivery");
     }
-    return entry;
+    return await this.#runtime.withCurrentSessionEntry({ sessionKey: identity.openclawSessionKey,
+      agentId: identity.agentId, storePath: identity.storePath, readConsistency: "latest" }, (entry) => {
+      if (!entry || entry.sessionId !== identity.openclawSessionId) {
+        throw new Error(`OpenClaw canonical session ${identity.openclawSessionId} is missing or changed identity; explicit host reset required`);
+      }
+      return consume(entry);
+    });
   }
-  async #patch(identity: CanonicalIdentity, assertActive: () => void,
+  async #patch(identity: CanonicalIdentity, assertActive: SessionOwnerAssertion,
     update: (entry: RuntimeSessionEntry) => Partial<RuntimeSessionEntry> | null): Promise<RuntimeSessionEntry> {
     this.#assertAtomic();
     assertActive();
-    const persisted = await this.#runtime.patchSessionEntry({ sessionKey: identity.openclawSessionKey,
+    const persisted = await this.#runtime.prepareSessionEntryPatch({ sessionKey: identity.openclawSessionKey,
       agentId: identity.agentId, storePath: identity.storePath, readConsistency: "latest", preserveActivity: true,
-      // The inspected public API executes this inside its snapshot-checked SQL
-      // commit. An update-callback fence alone does not protect asynchronous preparation.
-      assertCommitAllowed: assertActive,
-      update: (entry) => {
+      // Preparation executes once outside SQLite; the host compares the full
+      // captured entry and checks the original owner again at its commit edge.
+      authority: sessionPatchAuthority(assertActive),
+      prepare: (entry) => {
         assertActive();
         if (entry.sessionId !== identity.openclawSessionId) throw invalid(identity.openclawSessionId);
+        assertNativeSessionOwner(entry);
         return update(entry);
       },
     });
+    assertActive();
     if (!persisted) throw new Error(`failed to persist ANTIGRAVITY canonical session ${identity.openclawSessionId}; do not retry native inference`);
     return persisted;
   }
-  resolve(params: AntigravityOpenClawSession): AntigravitySessionBinding | undefined {
+  async resolve(params: AntigravityOpenClawSession): Promise<AntigravitySessionBinding | undefined> {
     const identity = canonicalIdentity(params);
-    const envelope = parseEnvelope(this.#get(identity), identity);
-    if (envelope?.resetPending) throw new Error("ANTIGRAVITY session reset is pending cancellation/drain; resume is blocked");
-    return envelope?.binding;
+    return await this.#withCurrentEntry(identity, (entry) => {
+      const envelope = parseEnvelope(entry, identity);
+      if (envelope?.resetPending) throw new Error("ANTIGRAVITY session reset is pending cancellation/drain; resume is blocked");
+      return envelope?.binding;
+    });
   }
   async beginAttempt(params: BeginAntigravitySessionAttempt): Promise<AntigravitySessionLease> {
     this.#assertAtomic();
     const identity = canonicalIdentity(params);
     const modelId = exactString(params.modelId, "AGY exact model id");
-    const scopeKey = exactString(params.scopeKey, "AGY authority scope");
+    const scopeKey = exactString(params.scopeKey, "native binding scope");
     const token = randomUUID();
     const persisted = await this.#patch(identity, params.assertActive, (entry) => {
       const previous = parseEnvelope(entry, identity);
       if (previous?.resetPending) throw new Error("ANTIGRAVITY reset is pending; explicit host cancellation/drain required");
       if (previous?.activeAttempt) throw new Error("ANTIGRAVITY session has an active or interrupted attempt; concurrent resume is unsupported until explicit host reset/reconciliation");
       if (previous?.binding && (previous.binding.modelId !== modelId || previous.binding.scopeKey !== scopeKey)) {
-        throw new Error("ANTIGRAVITY resume model or runtime/account/project/native-agent scope changed; explicit host reset or validated migration required");
+        throw new Error("ANTIGRAVITY resume model or binding scope changed; explicit host reset or validated migration required");
       }
       const envelope: Envelope = previous ?? { ...identity, schema: SCHEMA, harnessId: "antigravity",
         epoch: randomUUID(), lifecycleRevision: generation(entry) };
@@ -234,18 +253,24 @@ export class AntigravitySessionBindings {
     let ended = false;
     const lease: AntigravitySessionLease = Object.freeze({ ...identity, token, epoch: envelope.epoch,
       lifecycleRevision: envelope.lifecycleRevision, modelId, scopeKey, ...(envelope.binding ? { binding: Object.freeze(envelope.binding) } : {}),
-      assertActive: () => {
-        params.assertActive();
+      assertActive: guardSessionAuthority(params.assertActive, () => {
         if (ended) throw new Error("ANTIGRAVITY session attempt is retired");
-        this.#assertLease(lease);
+      }),
+      assertCurrent: async () => {
+        lease.assertActive();
+        await this.#withCurrentEntry(lease, (entry) => {
+          lease.assertActive();
+          this.#assertLease(lease, entry);
+        });
+        lease.assertActive();
       },
     });
     this.#retire.set(lease, () => { ended = true; });
-    lease.assertActive(); // Keep persisted claim when ownership is lost.
+    await lease.assertCurrent(); // Keep persisted claim when ownership is lost.
     return lease;
   }
   readonly #retire = new WeakMap<AntigravitySessionLease, () => void>();
-  #assertLease(lease: AntigravitySessionLease, entry = this.#get(lease)): Envelope {
+  #assertLease(lease: AntigravitySessionLease, entry: RuntimeSessionEntry): Envelope {
     const envelope = parseEnvelope(entry, lease);
     if (!envelope || envelope.resetPending || envelope.epoch !== lease.epoch
       || envelope.lifecycleRevision !== lease.lifecycleRevision || envelope.activeAttempt?.token !== lease.token
@@ -261,7 +286,8 @@ export class AntigravitySessionBindings {
     const modelId = exactString(params.modelId, "AGY exact model id");
     const conversationId = exactString(params.conversationId, "AGY conversation id");
     if (modelId !== lease.modelId) throw new Error("AGY init model does not match the session attempt lease");
-    const assertActive = () => { params.assertActive?.(); lease.assertActive(); };
+    const assertActive = guardSessionAuthority(lease.assertActive, params.assertActive ?? (() => {}));
+    await lease.assertCurrent();
     const persisted = await this.#patch(identity, assertActive, (entry) => {
       const envelope = this.#assertLease(lease, entry);
       if (envelope.binding) {
@@ -273,6 +299,7 @@ export class AntigravitySessionBindings {
       return patchEnvelope(entry, { ...envelope, binding });
     });
     assertActive();
+    await lease.assertCurrent();
     const binding = parseEnvelope(persisted, identity)?.binding;
     if (!binding || binding.conversationId !== conversationId) throw new Error("AGY binding persistence was not confirmed; do not retry native inference");
     return binding;
@@ -299,13 +326,15 @@ export class AntigravitySessionBindings {
    * remains usable by t004's final-result sink. The actual host commit must
    * invoke it atomically with that mutation and check its own current owner.
    */
-  assertResultCurrent(lease: AntigravitySessionLease): void {
-    const envelope = parseEnvelope(this.#get(lease), lease);
-    if (!envelope || envelope.resetPending || envelope.activeAttempt || envelope.epoch !== lease.epoch
-      || envelope.lifecycleRevision !== lease.lifecycleRevision || envelope.lastSettledAttempt?.token !== lease.token
-      || envelope.lastSettledAttempt.modelId !== lease.modelId || envelope.lastSettledAttempt.scopeKey !== lease.scopeKey) {
-      throw new Error("ANTIGRAVITY final result generation is stale or not settled; delivery revoked");
-    }
+  async assertResultCurrent(lease: AntigravitySessionLease): Promise<void> {
+    await this.#withCurrentEntry(lease, (entry) => {
+      const envelope = parseEnvelope(entry, lease);
+      if (!envelope || envelope.resetPending || envelope.activeAttempt || envelope.epoch !== lease.epoch
+        || envelope.lifecycleRevision !== lease.lifecycleRevision || envelope.lastSettledAttempt?.token !== lease.token
+        || envelope.lastSettledAttempt.modelId !== lease.modelId || envelope.lastSettledAttempt.scopeKey !== lease.scopeKey) {
+        throw new Error("ANTIGRAVITY final result generation is stale or not settled; delivery revoked");
+      }
+    });
   }
   /** The caller supplies qualified host cancellation/drain, including other
    * processes. Metadata retirement precedes drain; failure leaves a tombstone.

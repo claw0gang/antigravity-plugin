@@ -256,6 +256,26 @@ test("failed or partial native results are never persisted as completed child an
   }
 });
 
+test("revocation during transcript preparation prevents append and publication", async () => {
+  let revoked = false;
+  let checks = 0;
+  await assert.rejects(persistAntigravityCompletedAssistant({
+    attempt: attempt({ prepareText: (text) => { revoked = true; return text; } }),
+    result: {
+      ...completedResult(),
+      async antigravityDeliveryGuard() {
+        checks++;
+        if (revoked) throw new Error("session revoked during preparation");
+      },
+    },
+    runtime: {
+      async appendAssistant() { assert.fail("revoked answer must not reach strict append"); },
+      async publishUpdate() { assert.fail("revoked answer must not publish a transcript update"); },
+    },
+  }), /session revoked during preparation/u);
+  assert.equal(checks, 1);
+});
+
 test("session rebound rejects persistence instead of claiming transcript ownership", async () => {
   await assert.rejects(
     persistAntigravityCompletedAssistant({

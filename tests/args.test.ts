@@ -110,3 +110,17 @@ test("encoded prompt limit includes JSON escaping, framing and UTF-8 bytes", () 
   assert.ok(Buffer.byteLength(JSON.stringify(args)) < 1024);
   assert.ok(!args.includes(largest));
 });
+
+test("validated native effort is passed on fresh and exact resume argv, not a persisted command", () => {
+  const config = resolveAntigravityPluginConfig({ project: "existing" });
+  const request = { config, modelId: "opaque-variant", prompt: "task", effort: { id: "opaque-variant", label: "Opaque (XHigh)", effort: "xhigh" as const, is_default: false } };
+  for (const args of [buildAgyHarnessFreshArgs(request), buildAgyHarnessResumeArgs({ ...request, conversationId: "bound" })]) {
+    assert.equal(args[args.indexOf("--effort") + 1], "xhigh");
+    assert.equal(args.filter(arg => arg === "--effort").length, 1);
+    assert.equal(args[args.indexOf("--model") + 1], "opaque-variant");
+    assert.equal(args.includes("--print"), false);
+  }
+  assert.throws(() => buildAgyHarnessFreshArgs({ ...request, effort: { ...request.effort, effort: "off" as never } }), /effective-model-unverified/);
+  assert.throws(() => buildAgyHarnessFreshArgs({ ...request, modelId: "different" }), /effective-model-unverified/);
+  assert.throws(() => buildAgyHarnessResumeArgs({ ...request, modelId: "different", conversationId: "bound" }), /effective-model-unverified/);
+});

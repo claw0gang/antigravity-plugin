@@ -1,4 +1,5 @@
 import { agentHarnessAttemptTerminal } from "../host/terminal.js";
+import { nativeResultDiagnostic } from "./diagnostics.js";
 import {
   type AgentHarnessAttemptParamsV2,
   type AgentHarnessAttemptResult,
@@ -37,7 +38,7 @@ export type AntigravityAttemptResult = Extract<AgentHarnessAttemptResult, { term
   antigravityEvidence: AttemptEvidence;
   /** Internal t004 final-consumer fence. Invoke at the actual host commit edge;
    * this is not an upstream SDK field and pre-return checks do not replace it. */
-  antigravityDeliveryGuard?: () => void;
+  antigravityDeliveryGuard?: () => Promise<void>;
   antigravityOutcome: AntigravityOutcome;
 };
 
@@ -84,6 +85,12 @@ function completedAssistantMessage(params: {
 }
 
 function visibleText(snapshot: AgyStreamPartialSnapshot): string {
+  // On native ERROR/INVALID the terminal response may itself be an error
+  // diagnostic. Only independently streamed assistant output is user text.
+  if (snapshot.result?.status === "ERROR" || snapshot.result?.status === "INVALID" ||
+      snapshot.result?.finished_reason === "error") {
+    return snapshot.assistantText;
+  }
   if (snapshot.result?.response.trim()) {
     return snapshot.result.response;
   }
@@ -144,6 +151,7 @@ function evidenceForResult(params: {
   if (snapshot?.conversationId) evidence.conversationId = snapshot.conversationId;
   if (snapshot?.result) {
     evidence.terminal.nativeStatus = snapshot.result.status;
+    if (snapshot.result.finished_reason === "print_timeout") evidence.terminal.nativeTimeout = true;
     evidence.terminal.deniedActions = Math.max(
       evidence.terminal.deniedActions ?? 0,
       snapshot.result.denied_actions?.length ?? 0,
@@ -167,6 +175,18 @@ function terminalFromSnapshot(snapshot: AgyStreamSnapshot, evidence: AttemptEvid
       timedOut: true,
       timedOutByRunBudget: evidence.termination.hostReason === "timeout",
       promptError: new Error("AGY attempt timed out or was truncated; available output is partial"),
+      promptErrorSource: "prompt",
+    });
+  }
+  if (snapshot.result.finished_reason === "interrupted") {
+    return agentHarnessAttemptTerminal.normalize({ aborted: true });
+  }
+  if (snapshot.result.finished_reason !== undefined) {
+    return agentHarnessAttemptTerminal.normalize({
+      // Native error strings can contain credentials, paths or prompts.
+      promptError: snapshot.result.finished_reason === "error"
+        ? nativeResultDiagnostic("error", evidence)
+        : new Error(`AGY reported finished_reason ${snapshot.result.finished_reason}`),
       promptErrorSource: "prompt",
     });
   }
@@ -199,11 +219,7 @@ function terminalFromSnapshot(snapshot: AgyStreamSnapshot, evidence: AttemptEvid
     case "ERROR":
     case "INVALID":
       return agentHarnessAttemptTerminal.normalize({
-        promptError: new Error(
-          snapshot.result.error?.trim() ||
-            snapshot.result.response.trim() ||
-            `AGY returned ${snapshot.result.status}`,
-        ),
+        promptError: nativeResultDiagnostic(snapshot.result.status, evidence),
         promptErrorSource: "prompt",
       });
   }
@@ -224,9 +240,10 @@ function outcomeProjection(params: {
   evidence: AttemptEvidence;
   snapshot?: AgyStreamPartialSnapshot;
   error?: Error;
+  suppressNativeOutput?: boolean;
 }): { outcome: AntigravityOutcome; assistantTexts: string[] } {
   const { terminal, evidence, snapshot } = params;
-  const text = snapshot ? visibleText(snapshot) : "";
+  const text = snapshot && !params.suppressNativeOutput ? visibleText(snapshot) : "";
   const availableOutput = text.trim().length > 0;
   const deniedActions = Object.freeze((snapshot?.result?.denied_actions ?? [])
     .map((action) => Object.freeze({ ...action })));
@@ -234,6 +251,7 @@ function outcomeProjection(params: {
   const timeout = terminal.kind === "timeout" || evidence.terminal.nativeTimeout === true ||
     evidence.termination.hostReason === "timeout";
   const canceled = terminal.kind === "aborted" || evidence.termination.hostReason === "aborted" ||
+    snapshot?.result?.finished_reason === "interrupted" ||
     evidence.terminal.nativeStatus === "CANCELED" || evidence.terminal.nativeStatus === "INTERRUPTED";
   const kind: AntigravityOutcome["kind"] = timeout ? "timeout"
     : canceled ? "canceled"
@@ -255,12 +273,12 @@ function outcomeProjection(params: {
     reasons.push(availableOutput
       ? "Available output is partial; full completion is not established."
       : "No completed response is available.");
-    if (!timeout && !canceled && denied === 0) {
-      // Timeout/abort variants were excluded above; only canonical failure
-      // carries an error on this branch of the public SDK terminal union.
+    if (params.error?.message.trim()) {
+      // An explicit failure diagnostic also matters for timeout/cancellation.
+      reasons.push(params.error.message);
+    } else if (!timeout && !canceled && denied === 0) {
       const terminalError = terminal.kind === "failed" ? terminal.error : undefined;
-      const error = params.error ?? (terminalError instanceof Error ? terminalError : undefined);
-      if (error?.message.trim()) reasons.push(error.message);
+      if (terminalError instanceof Error && terminalError.message.trim()) reasons.push(terminalError.message);
     }
   }
   const explanation = kind === "completed" ? undefined
@@ -378,6 +396,8 @@ export function buildAntigravityFailureResult(params: {
   nativeToolActivityObserved?: boolean;
   evidence?: AttemptEvidence;
   partialSnapshot?: AgyStreamPartialSnapshot;
+  /** No native text is safe when session or delivery authority is unconfirmed. */
+  suppressNativeOutput?: boolean;
   lastToolError?: AgentHarnessAttemptResult["lastToolError"];
 }): AntigravityAttemptResult {
   const error = params.error instanceof Error ? params.error : new Error(String(params.error));
@@ -399,9 +419,10 @@ export function buildAntigravityFailureResult(params: {
     promptError: error, promptErrorSource: "prompt",
     ...(evidence.terminal.nativeTimeout || evidence.termination.hostReason === "timeout"
       ? { aborted: true, timedOut: true, timedOutByRunBudget: evidence.termination.hostReason === "timeout" }
-      : {}),
+      : snapshot?.result?.finished_reason === "interrupted" ? { aborted: true } : {}),
   });
-  const projection = outcomeProjection({ terminal, evidence, ...(snapshot ? { snapshot } : {}), error });
+  const projection = outcomeProjection({ terminal, evidence, ...(snapshot ? { snapshot } : {}), error,
+    ...(params.suppressNativeOutput ? { suppressNativeOutput: true } : {}) });
   return {
     antigravityEvidence: evidence,
     antigravityOutcome: projection.outcome,
@@ -409,8 +430,10 @@ export function buildAntigravityFailureResult(params: {
     sessionIdUsed: params.attempt.sessionId,
     agentHarnessId: "antigravity",
     messagesSnapshot: [],
-    assistantTexts: projection.assistantTexts,
-    toolMetas: snapshot ? toolMetasFromSnapshot(snapshot) : [],
+    // Let the host surface terminal failure, not an assistant reply, if
+    // output authority could not be confirmed.
+    assistantTexts: params.suppressNativeOutput ? [] : projection.assistantTexts,
+    toolMetas: snapshot && !params.suppressNativeOutput ? toolMetasFromSnapshot(snapshot) : [],
     lastAssistant: undefined,
     currentAttemptAssistant: undefined,
     currentAttemptCompletedAssistant: undefined,

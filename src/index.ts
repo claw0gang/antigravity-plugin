@@ -1,10 +1,9 @@
 import { definePluginEntry } from "./host/entry.js";
-import { assertOpenClawCompatibility } from "./host/compatibility.js";
-import { createOpenClawAntigravityHostContracts } from "./host/runtime-identity.js";
+import { assertOpenClawCompatibility, supportsNativeCatalogControls } from "./host/compatibility.js";
+import { createOpenClawAntigravityHostContracts } from "./host/contracts.js";
 import { createAntigravitySessionRuntime } from "./host/session-runtime.js";
 import type { OpenClawPluginApi } from "./host/types.js";
 
-import { buildAntigravityCliBackend } from "./backend.js";
 import {
   antigravityConfigSchema,
   resolveAntigravityPluginConfig,
@@ -27,12 +26,10 @@ const antigravityPlugin = definePluginEntry({
     assertOpenClawCompatibility(api);
     const config = resolveAntigravityPluginConfig(api.pluginConfig);
     const inventoryOwner = new AgyHostInventoryOwner({ pluginConfig: config });
-    const providerOptions = { pluginConfig: config, inventoryOwner };
+    const nativeCatalogControls = supportsNativeCatalogControls(api.runtime.version);
+    const providerOptions = { pluginConfig: config, inventoryOwner, nativeCatalogControls };
     const sessionRuntime = createAntigravitySessionRuntime(api.runtime.agent.session);
-    const hostContracts = createOpenClawAntigravityHostContracts({
-      pluginConfig: config,
-      sessionRuntime,
-    });
+    const hostContracts = createOpenClawAntigravityHostContracts({ sessionRuntime });
     // Public cleanup only; no timer, native restart or background discovery.
     // Hosts without this optional lifecycle hook retain bounded one-shot reads.
     api.registerService?.({
@@ -46,24 +43,16 @@ const antigravityPlugin = definePluginEntry({
       createAntigravityHarness({
         pluginConfig: config,
         inventoryOwner,
+        nativeCatalogControls,
         sessionRuntime,
         hostContracts,
       }),
     );
-    api.registerCliBackend(buildAntigravityCliBackend(config));
   },
 });
 
 export default antigravityPlugin;
 
-export {
-  ANTIGRAVITY_CLI_BACKEND_ID,
-  ANTIGRAVITY_CLI_DEFAULT_MODEL_REF,
-  ANTIGRAVITY_HARNESS_ID,
-  buildAntigravityCliBackend,
-  buildFreshArgs,
-  buildResumeArgs,
-} from "./backend.js";
 export {
   antigravityConfigSchema,
   resolveAntigravityPluginConfig,
@@ -75,15 +64,10 @@ export {
   type CreateAntigravityHarnessOptions,
 } from "./harness/harness.js";
 export {
-  ANTIGRAVITY_CONFIRMED_MODEL_IDS,
-  ANTIGRAVITY_MODEL_ALIASES,
-} from "./model-aliases.js";
-export {
   ANTIGRAVITY_PROVIDER_ID,
   buildAntigravityNativeRuntimeModel,
   createAntigravityModelCatalogProvider,
   createAntigravityProvider,
-  normalizeAntigravityModelId,
   type CreateAntigravityProviderOptions,
 } from "./provider.js";
 

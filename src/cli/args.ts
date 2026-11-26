@@ -1,4 +1,5 @@
 import type { AntigravityPluginConfig } from "../config.js";
+import { assertAgyEffortPair, type AgySelectedModel } from "../harness/model-capabilities.js";
 
 export const MAX_AGY_PROMPT_BYTES = 1024 * 1024;
 
@@ -26,6 +27,7 @@ export function resolveAgyModelId(modelId: string): string {
 function buildHarnessCommonArgs(params: {
   config: AntigravityPluginConfig;
   modelId: string;
+  effort?: AgySelectedModel;
   prompt: string;
 }): string[] {
   const { config } = params;
@@ -50,6 +52,9 @@ function buildHarnessCommonArgs(params: {
   if (config.dangerouslySkipPermissions) {
     args.push("--dangerously-skip-permissions");
   }
+  if (params.effort !== undefined) {
+    args.push("--effort", assertAgyEffortPair(params.modelId, params.effort));
+  }
   args.push(
     "--model",
     resolveAgyModelId(params.modelId),
@@ -66,6 +71,7 @@ function buildHarnessCommonArgs(params: {
 export function buildAgyHarnessFreshArgs(params: {
   config: AntigravityPluginConfig;
   modelId: string;
+  effort?: AgySelectedModel;
   prompt: string;
 }): string[] {
   const args: string[] = [];
@@ -81,6 +87,7 @@ export function buildAgyHarnessFreshArgs(params: {
 export function buildAgyHarnessResumeArgs(params: {
   config: AntigravityPluginConfig;
   modelId: string;
+  effort?: AgySelectedModel;
   prompt: string;
   conversationId: string;
 }): string[] {

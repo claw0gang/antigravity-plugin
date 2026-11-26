@@ -161,8 +161,8 @@ test("fresh then resume uses the exact persisted AGY conversation and concrete m
       pluginConfig,
       sessionBindings: bindings,
     });
-    assert.equal(bindings.resolve({ agentId: "main", storePath: join(mock.root, "SIMULATED-session-store.json"), openclawSessionId: sessionId, openclawSessionKey: sessionKey })?.conversationId, "conversation-1");
-    assert.equal(bindings.resolve({ agentId: "main", storePath: join(mock.root, "SIMULATED-session-store.json"), openclawSessionId: sessionId, openclawSessionKey: sessionKey })?.modelId, "gemini-3.8-flash-low");
+    assert.equal((await bindings.resolve({ agentId: "main", storePath: join(mock.root, "SIMULATED-session-store.json"), openclawSessionId: sessionId, openclawSessionKey: sessionKey }))?.conversationId, "conversation-1");
+    assert.equal((await bindings.resolve({ agentId: "main", storePath: join(mock.root, "SIMULATED-session-store.json"), openclawSessionId: sessionId, openclawSessionKey: sessionKey }))?.modelId, "gemini-3.8-flash-low");
 
     await runAntigravityAttempt({
       hostContracts: fixtureHostContracts(),
@@ -207,8 +207,8 @@ test("two concurrent OpenClaw sessions bind to distinct AGY conversations", asyn
       }),
     ]);
 
-    assert.equal(bindings.resolve({ agentId: "main", storePath: join(mock.root, "SIMULATED-session-store.json"), openclawSessionId: first.sessionId, openclawSessionKey: first.sessionKey })?.conversationId, "conversation-1");
-    assert.equal(bindings.resolve({ agentId: "main", storePath: join(mock.root, "SIMULATED-session-store.json"), openclawSessionId: second.sessionId, openclawSessionKey: second.sessionKey })?.conversationId, "conversation-2");
+    assert.equal((await bindings.resolve({ agentId: "main", storePath: join(mock.root, "SIMULATED-session-store.json"), openclawSessionId: first.sessionId, openclawSessionKey: first.sessionKey }))?.conversationId, "conversation-1");
+    assert.equal((await bindings.resolve({ agentId: "main", storePath: join(mock.root, "SIMULATED-session-store.json"), openclawSessionId: second.sessionId, openclawSessionKey: second.sessionKey }))?.conversationId, "conversation-2");
   } finally {
     await mock.cleanup();
   }

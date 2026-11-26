@@ -1,0 +1,187 @@
+{
+  "version": "1.5.17",
+  "probes": [
+    {
+      "case": "adjustable",
+      "requestedModel": "gemini-4-hydrogen-high",
+      "command": "/effort",
+      "effortFlag": null,
+      "exitCode": 0,
+      "status": "SUCCESS",
+      "emptyConversationId": true,
+      "turns": 0,
+      "usage": {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "thinking_tokens": 0,
+        "cache_read_tokens": 0,
+        "total_tokens": 0
+      },
+      "report": {
+        "adjustable": true,
+        "available": [
+          "low",
+          "medium",
+          "high",
+          "xhigh"
+        ],
+        "current": "high"
+      }
+    },
+    {
+      "case": "fixed",
+      "requestedModel": "gpt-oss-120b-medium",
+      "command": "/effort",
+      "effortFlag": null,
+      "exitCode": 0,
+      "status": "SUCCESS",
+      "emptyConversationId": true,
+      "turns": 0,
+      "usage": {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "thinking_tokens": 0,
+        "cache_read_tokens": 0,
+        "total_tokens": 0
+      },
+      "report": {
+        "adjustable": false
+      }
+    },
+    {
+      "case": "limited",
+      "requestedModel": "gemini-3.8-flash-high",
+      "command": "/effort",
+      "effortFlag": null,
+      "exitCode": 0,
+      "status": "SUCCESS",
+      "emptyConversationId": true,
+      "turns": 0,
+      "usage": {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "thinking_tokens": 0,
+        "cache_read_tokens": 0,
+        "total_tokens": 0
+      },
+      "report": {
+        "adjustable": true,
+        "available": [
+          "low",
+          "medium",
+          "high"
+        ],
+        "current": "high"
+      }
+    },
+    {
+      "case": "model-default",
+      "requestedModel": "gemini-4-hydrogen-high",
+      "command": "/model",
+      "effortFlag": null,
+      "exitCode": 0,
+      "status": "SUCCESS",
+      "emptyConversationId": true,
+      "turns": 0,
+      "usage": {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "thinking_tokens": 0,
+        "cache_read_tokens": 0,
+        "total_tokens": 0
+      },
+      "report": {
+        "id": "gemini-4-hydrogen-high",
+        "label": "Gemini 4 Hydrogen (High)",
+        "effort": "high",
+        "is_default": false
+      },
+      "responseFormat": "exact ID<TAB>label<LF>"
+    },
+    {
+      "case": "model-low",
+      "requestedModel": "gemini-4-hydrogen-high",
+      "command": "/model",
+      "effortFlag": "low",
+      "exitCode": 1,
+      "status": "ERROR",
+      "emptyConversationId": true,
+      "turns": 0,
+      "usage": {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "thinking_tokens": 0,
+        "cache_read_tokens": 0,
+        "total_tokens": 0
+      },
+      "diagnostic": "--model gemini-4-hydrogen-high conflicts with --effort=low"
+    },
+    {
+      "case": "effort-low",
+      "requestedModel": "gemini-4-hydrogen-high",
+      "command": "/effort",
+      "effortFlag": "low",
+      "exitCode": 1,
+      "status": "ERROR",
+      "emptyConversationId": true,
+      "turns": 0,
+      "usage": {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "thinking_tokens": 0,
+        "cache_read_tokens": 0,
+        "total_tokens": 0
+      },
+      "diagnostic": "--model gemini-4-hydrogen-high conflicts with --effort=low"
+    },
+    {
+      "case": "model-matching-high",
+      "requestedModel": "gemini-4-hydrogen-high",
+      "command": "/model",
+      "effortFlag": "high",
+      "exitCode": 2,
+      "status": "SUCCESS",
+      "emptyConversationId": true,
+      "turns": 0,
+      "usage": {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "thinking_tokens": 0,
+        "cache_read_tokens": 0,
+        "total_tokens": 0
+      },
+      "report": {
+        "id": "gemini-4-hydrogen-high",
+        "label": "Gemini 4 Hydrogen (High)",
+        "effort": "high",
+        "is_default": false
+      },
+      "responseFormat": "exact ID<TAB>label<LF>",
+      "limitation": "Success envelope with nonzero process exit; cause not established; not a successful process control."
+    },
+    {
+      "case": "model-matching-low",
+      "requestedModel": "gemini-4-hydrogen-low",
+      "command": "/model",
+      "effortFlag": "low",
+      "exitCode": 0,
+      "status": "SUCCESS",
+      "emptyConversationId": true,
+      "turns": 0,
+      "usage": {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "thinking_tokens": 0,
+        "cache_read_tokens": 0,
+        "total_tokens": 0
+      },
+      "report": {
+        "id": "gemini-4-hydrogen-low",
+        "label": "Gemini 4 Hydrogen (Low)",
+        "effort": "low",
+        "is_default": false
+      },
+      "responseFormat": "exact ID<TAB>label<LF>"
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 {
   "name": "@claw0gang/antigravity",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "OpenClaw AgentHarnessV2 runtime for Google Antigravity CLI",
   "type": "module",
   "main": "./dist/index.js",
@@ -27,8 +27,7 @@
     "prepack": "node tools/verify-artifact.mjs --quiet",
     "pack:check": "node tools/check-package.mjs",
     "export:public": "node tools/export-public.mjs",
-    "compat:check": "node tools/check-openclaw-compatibility.mjs",
-    "qualify": "node tools/qualification.mjs"
+    "compat:check": "node tools/check-openclaw-compatibility.mjs"
   },
   "engines": {
     "node": ">=22.12.0"
@@ -45,8 +44,8 @@
       "minGatewayVersion": ">=2026.9.2"
     },
     "build": {
-      "openclawVersion": "2026.9.4",
-      "pluginSdkVersion": "2026.9.4"
+      "openclawVersion": "2026.11.7",
+      "pluginSdkVersion": "2026.11.7"
     }
   },
   "peerDependencies": {
@@ -54,7 +53,7 @@
   },
   "devDependencies": {
     "@types/node": "24.3.0",
-    "openclaw": "2026.9.4",
+    "openclaw": "2026.11.7",
     "tsx": "4.20.5",
     "typescript": "5.9.3"
   },
@@ -64,7 +63,6 @@
     "google-antigravity",
     "agy",
     "agent-harness",
-    "cli-backend",
     "plugin"
   ],
   "repository": {

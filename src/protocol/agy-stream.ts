@@ -68,9 +68,13 @@ export type AgyResultStatus =
   | "WAITING"
   | "RUNNING";
 
+/** AGY omits this field on a normal finish; every documented value is non-normal. */
+export type AgyFinishedReason = "print_timeout" | "interrupted" | "error";
+
 export type AgyTerminalResult = {
   conversation_id: string;
   status: AgyResultStatus;
+  finished_reason?: AgyFinishedReason;
   response: string;
   error?: string;
   duration_seconds: number;
@@ -143,6 +147,8 @@ const RESULT_STATUSES = new Set<AgyResultStatus>([
   "WAITING",
   "RUNNING",
 ]);
+
+const FINISHED_REASONS = new Set<AgyFinishedReason>(["print_timeout", "interrupted", "error"]);
 
 function malformed(message: string): never {
   throw new AgyStreamProtocolError("malformed_event", message);
@@ -389,8 +395,12 @@ function parseResult(root: Record<string, unknown>): AgyResultEvent {
   if (!Number.isSafeInteger(numTurns) || numTurns < 0) {
     return malformed("result.num_turns must be a non-negative integer");
   }
+  const finishedReason = optionalString(result, "finished_reason", "result");
+  if (finishedReason !== undefined && !FINISHED_REASONS.has(finishedReason as AgyFinishedReason)) {
+    return malformed(`result.finished_reason is unsupported: ${finishedReason}`);
+  }
   const error = optionalString(result, "error", "result");
-  if (status === "SUCCESS" && error?.trim()) {
+  if (status === "SUCCESS" && finishedReason === undefined && error?.trim()) {
     return malformed("SUCCESS result contains a contradictory error");
   }
   return {
@@ -398,6 +408,7 @@ function parseResult(root: Record<string, unknown>): AgyResultEvent {
     result: {
       conversation_id: nonEmptyString(result, "conversation_id", "result"),
       status: status as AgyResultStatus,
+      ...(finishedReason !== undefined ? { finished_reason: finishedReason as AgyFinishedReason } : {}),
       response: requiredString(result, "response", "result"),
       ...(error !== undefined ? { error } : {}),
       duration_seconds: requiredFiniteNumber(result, "duration_seconds", "result"),
@@ -567,10 +578,13 @@ export class AgyStreamAccumulator {
     }
 
     this.#result = event.result;
-    if (event.result.status === "WAITING" || event.result.status === "RUNNING") {
+    // A known finished_reason explains an early stop even when the native
+    // conversation never reached a terminal status; consumers must fail it.
+    if ((event.result.status === "WAITING" || event.result.status === "RUNNING") &&
+        event.result.finished_reason === undefined) {
       throw new AgyStreamProtocolError("nonterminal_result", "AGY ended without a terminal native status");
     }
-    if (event.result.status === "SUCCESS" &&
+    if (event.result.status === "SUCCESS" && event.result.finished_reason === undefined &&
         [...this.#steps.values()].some((step) => step.state === "ACTIVE")) {
       throw new AgyStreamProtocolError("incomplete_step", "AGY reported SUCCESS with an unfinished step");
     }
@@ -597,6 +611,7 @@ export class AgyStreamAccumulator {
       }
       if (
         this.#result.status === "SUCCESS" &&
+        this.#result.finished_reason === undefined &&
         this.#result.response.trim().length === 0 &&
         this.#result.structured_output === undefined &&
         (this.#result.denied_actions?.length ?? 0) === 0

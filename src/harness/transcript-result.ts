@@ -102,6 +102,9 @@ export async function persistAntigravityCompletedAssistant(params: {
 
   const runtime = params.runtime ?? (await loadOpenClawTranscriptRuntime());
   const message = { ...prepared, idempotencyKey } as AssistantMessage & { idempotencyKey: string };
+  // Runtime loading and message preparation precede this final plugin check.
+  // The strict SDK append independently owns the canonical commit boundary.
+  await params.result.antigravityDeliveryGuard?.();
   params.attempt.hostCapabilities.assertActive();
   const append = await runtime.appendAssistant({
     agentId: admission.agentId,

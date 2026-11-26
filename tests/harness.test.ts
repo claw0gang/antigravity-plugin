@@ -23,6 +23,8 @@ test("harness owns antigravity provider and declares exact qualified safe-deny p
   const harness = createHarness();
   assert.equal(harness.id, "antigravity");
   assert.equal(harness.authBootstrap, "harness");
+  assert.equal(harness.executionEnvironment, "host-only");
+  assert.equal(harness.nativeModelPolicySupport, undefined);
   assert.deepEqual(harness.autoSelection, { providerIds: ["antigravity"] });
   assert.equal(harness.conversationToolPolicySupport, "exact");
   assert.deepEqual(harness.conversationToolPolicySafeDenyTools, ANTIGRAVITY_OPENCLAW_SAFE_DENY_TOOLS);
@@ -97,6 +99,67 @@ test("harness rejects foreign, ambiguous, or transport-overridden routes", () =>
   assert.equal(harness.supports({ provider: "antigravity", requestedRuntime: "auto", providerOwnerStatus: "owned", providerOwnerPluginIds: ["antigravity"], modelProvider: { requestTransportOverrides: "present" } }).supported, false);
 });
 
+test("harness preserves prepared endpoint, runtime and authentication restrictions", () => {
+  const harness = createHarness();
+  const route = {
+    provider: "antigravity", requestedRuntime: "auto",
+    providerOwnerStatus: "owned", providerOwnerPluginIds: ["antigravity"],
+  } as const;
+  const rejected = [
+    { endpointOverrides: "present" },
+    { runtimePolicy: { compatibleIds: [] } },
+    { runtimePolicy: { compatibleIds: ["antigravity-cli", "openclaw"] } },
+    { preparedAuth: { source: "profile", mode: "oauth" } },
+    { preparedAuth: { source: "direct", mode: "api-key" } },
+    { preparedAuth: { source: "direct", mode: "api_key" } },
+    { preparedAuth: { source: "direct", mode: "token" } },
+    { preparedAuth: { source: "direct", mode: "oauth", requirement: "subscription" } },
+    { preparedAuth: { source: "harness", requirement: "api-key" } },
+  ] as const;
+  for (const modelProvider of rejected) {
+    const result = harness.supports({ ...route, modelProvider });
+    assert.equal(result.supported, false, JSON.stringify(modelProvider));
+    assert.equal("fallbackRuntime" in result, false, "native route must not fall back to an HTTP runtime");
+  }
+  for (const modelProvider of [
+    undefined,
+    { endpointOverrides: "none", requestTransportOverrides: "none" },
+    { runtimePolicy: { compatibleIds: ["antigravity"] }, preparedAuth: { source: "harness" } },
+  ] as const) {
+    assert.equal(harness.supports({ ...route, ...(modelProvider ? { modelProvider } : {}) }).supported, true);
+  }
+});
+
+test("native attempt rejects a host credential before preparing a carrier or native work", async () => {
+  const harness = createHarness();
+  for (const auth of [
+    { authProfileId: "selected-profile" },
+    { runtimePlan: { auth: { forwardedAuthProfileId: "forwarded-profile" } } },
+    { resolvedApiKey: "SIMULATED-direct-oauth-credential" },
+    { resolvedApiKey: "openclaw:antigravity-native-auth" },
+  ]) {
+    let carrierPreparationReached = false;
+    const attempt = {
+      ...auth,
+      get contextEngine() { carrierPreparationReached = true; throw new Error("carrier must not start"); },
+    } as unknown as Parameters<typeof harness.runAttempt>[0];
+    await assert.rejects(harness.runAttempt(attempt), /cannot forward the selected OpenClaw credential/u);
+    assert.equal(carrierPreparationReached, false);
+  }
+});
+
+test("native login without an invented host credential reaches ordinary attempt preparation", async () => {
+  const harness = createHarness();
+  for (const auth of [{}]) {
+    const reached = new Error("SIMULATED: ordinary attempt preparation reached");
+    const attempt = {
+      ...auth,
+      get contextEngine() { throw reached; },
+    } as unknown as Parameters<typeof harness.runAttempt>[0];
+    await assert.rejects(harness.runAttempt(attempt), (error) => error === reached);
+  }
+});
+
 test("reset removes only the canonical native binding and retains a generation tombstone", async () => {
   const { rows, runtime } = createRuntime();
   const identity = { openclawSessionId: "session-1", openclawSessionKey: "agent:main:child:1", agentId: "main", storePath: "/SIMULATED-session-store.json" };
@@ -112,20 +175,12 @@ test("reset removes only the canonical native binding and retains a generation t
   await bindings.bindFresh({ ...identity, modelId: "fixture-model", conversationId: "conversation-1", lease });
   await bindings.endAttempt(lease, { terminationConfirmed: true });
   let drained = false;
-  const harness = createAntigravityHarness({
-    hostContracts: sourceHostContracts({
-      resolveResetSession: () => identity,
-      async cancelAndDrain(target) {
-        assert.deepEqual(target, identity);
-        assert.throws(() => bindings.resolve(identity), /reset.*pending/u);
-        drained = true;
-      },
-    }),
-    pluginConfig: resolveAntigravityPluginConfig(undefined), sessionRuntime: runtime,
-  });
-  await harness.reset?.({ agentId: "main", sessionKey: identity.openclawSessionKey, sessionId: identity.openclawSessionId, reason: "reset" });
+  await bindings.clear({ ...identity, async cancelAndDrain() {
+    await assert.rejects(() => bindings.resolve(identity), /reset.*pending/u);
+    drained = true;
+  } });
   assert.equal(drained, true);
-  assert.equal(bindings.resolve(identity), undefined);
+  assert.equal(await bindings.resolve(identity), undefined);
   const extensions = rows.get(identity.openclawSessionKey)?.pluginExtensions;
   assert.deepEqual(extensions?.other, { keep: true });
   assert.equal(extensions?.antigravity?.schema, "antigravity-native-session-binding/v2");
@@ -135,9 +190,8 @@ test("reset removes only the canonical native binding and retains a generation t
   assert.deepEqual(rows.get("agent:main:child:other"), beforeOther);
 });
 
-test("reset requires qualified canonical target resolution and drain", async () => {
-  const harness = createHarness();
-  await assert.rejects(harness.reset!({ agentId: "main", sessionKey: "agent:main:child:1", sessionId: "session-1", reason: "reset" }), /canonical target resolution.*cancellation\/drain/u);
+test("OpenClaw owns reset; Antigravity has no hook invoked for unrelated sessions", () => {
+  assert.equal(createHarness().reset, undefined);
 });
 
 test("canonical session deletion owns binding deletion without a side-store hook", () => {

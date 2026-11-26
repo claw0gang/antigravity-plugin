@@ -22,11 +22,33 @@ export function prepareOpenClawEnvironment(attempt: AgentHarnessAttemptParamsV2)
   const prepared = attempt.hostCapabilities.preparedEnvironment!();
   if (!prepared || !isEnvironment(prepared.credentialScrubEnv) ||
       !isEnvironment(prepared.localIdentityEnv) || typeof prepared.managedLocalIdentity !== "boolean" ||
-      (prepared.localProcessEnv !== undefined && !isEnvironment(prepared.localProcessEnv))) {
+      (prepared.localProcessEnv !== undefined && !isEnvironment(prepared.localProcessEnv)) ||
+      (prepared.localToolEnv !== undefined && !isEnvironment(prepared.localToolEnv)) ||
+      (prepared.localGitConfigParameters !== undefined &&
+        (typeof prepared.localGitConfigParameters !== "string" || prepared.localGitConfigParameters.includes("\0"))) ||
+      (prepared.localToolPathPrepend !== undefined &&
+        (!Array.isArray(prepared.localToolPathPrepend) || prepared.localToolPathPrepend.some(
+          (item) => typeof item !== "string" || !item || item.includes("\0")))) ||
+      (prepared.hostExecutionRequired !== undefined && prepared.hostExecutionRequired !== true)) {
     throw new Error("ANTIGRAVITY malformed required OpenClaw hostCapabilities.preparedEnvironment result; native discovery/execution cannot start");
   }
-  return {
+  // AGY's native tools cannot delegate their credential custody and approvals to
+  // createToolSurfaceAsync. An environment overlay cannot represent this demand.
+  if (prepared.hostExecutionRequired) {
+    throw new Error("ANTIGRAVITY requires host-owned execution tools for this prepared identity; native AGY execution cannot preserve that requirement");
+  }
+  const environment: NodeJS.ProcessEnv = {
     ...process.env, ...prepared.credentialScrubEnv, ...prepared.localIdentityEnv,
     ...(prepared.localProcessEnv ?? {}),
+    // The host already applied localToolPathPrepend to this owned-local PATH.
+    // AGY has no separately authored shell PATH; applying the prefix again would
+    // duplicate it and change lookup precedence.
+    ...(prepared.localToolEnv ?? {}),
   };
+  const fragment = prepared.localGitConfigParameters;
+  if (fragment) {
+    const base = environment.GIT_CONFIG_PARAMETERS;
+    environment.GIT_CONFIG_PARAMETERS = base ? `${base} ${fragment}` : fragment;
+  }
+  return environment;
 }

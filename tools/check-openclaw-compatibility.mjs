@@ -106,7 +106,7 @@ async function inspectCandidate(options) {
   const noRuntime = () => { throw new Error("Driver forbids host session services during simulated registration"); };
   const api = {
     pluginConfig: {},
-    runtime: { version: host.version, agent: { session: { getSessionEntry: noRuntime, patchSessionEntry: noRuntime } } },
+    runtime: { version: host.version, agent: { session: { getSessionEntry: noRuntime, listSessionEntries: noRuntime, patchSessionEntry: noRuntime } } },
     registerProvider: (value) => captured.providers.push(value),
     registerModelCatalogProvider: (value) => captured.catalogs.push(value),
     registerAgentHarness: (value) => captured.harnesses.push(value),
@@ -134,20 +134,21 @@ async function inspectCandidate(options) {
   };
   const expected = {
     providers: ["antigravity"], modelCatalogProviders: ["antigravity"],
-    agentHarnesses: ["antigravity"], cliBackends: ["antigravity-cli"],
+    agentHarnesses: ["antigravity"], cliBackends: [],
     nativeAutoSelection: [["antigravity"]], discoveryProvider: "antigravity",
   };
   if (!isDeepStrictEqual(registrations, expected)) throw new Error(`Unexpected public registration identities or native auto-selection: ${JSON.stringify(registrations)}`);
   if (manifest.providerCatalogEntry !== "./dist/provider-discovery.js" ||
       !isDeepStrictEqual(manifest.providers, ["antigravity"]) ||
-      !isDeepStrictEqual(manifest.cliBackends, ["antigravity-cli"])) {
-    throw new Error("Plugin manifest does not preserve native provider and explicit, disjoint CLI registration");
+      manifest.cliBackends !== undefined || manifest.modelCatalog?.providers !== undefined ||
+      manifest.syntheticAuthRefs !== undefined) {
+    throw new Error("Plugin manifest must expose only live native antigravity discovery");
   }
   const harness = captured.harnesses[0];
   if (typeof harness.supports !== "function" ||
       harness.supports({ provider: "antigravity", providerOwnerStatus: "owned", providerOwnerPluginIds: ["antigravity"] })?.supported !== true ||
       harness.supports({ provider: "antigravity-cli" })?.supported !== false) {
-    throw new Error("Native harness must select antigravity and reject the explicit CLI namespace");
+    throw new Error("Native harness must select antigravity and reject the removed CLI namespace");
   }
   return {
     status: "passed", evidenceKind: "SDK import with simulated registration",
@@ -162,7 +163,7 @@ async function inspectCandidate(options) {
       "agentHarnessAttemptTerminal.normalize": sdk[1].agentHarnessAttemptTerminal === undefined ? "local-equivalent-fallback" : "host-export-present",
     },
     compatibility, registrations,
-    cliFallback: "No implicit CLI selection in the checked registration: antigravity-cli is a disjoint explicit namespace; runtime routing remains unqualified",
+    cliFallback: "No generic CLI backend or static model catalog is registered; old antigravity-cli routes are unsupported",
     installedHostQualification: "pending", nativeExecutionQualification: "pending",
     P03: "pending", P05: "pending", hostCompatibilityObservation: "read-only-current-host",
   };

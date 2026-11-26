@@ -5,6 +5,7 @@ import {
   assertAgyResumeModelConsistency,
   deriveAgyNativeModelCapabilities,
   resolveAgyAttemptModel,
+  parseAgyEffortOutput, parseAgySelectedModelOutput, resolveAgyThinkingProfile, resolveAgyEffortSelection,
 } from "../src/harness/model-capabilities.ts";
 
 const liveModels = [
@@ -35,7 +36,7 @@ test("explicit effort-qualified Gemini model ids remain exact across OpenClaw th
       liveModels,
     });
     assert.equal(low.modelId, "gemini-3.8-flash-low");
-    assert.equal(low.selectedEffort, "low");
+    assert.equal(low.selectedEffort, undefined);
     assert.equal(low.adjustableReasoning, false);
 
     const high = resolveAgyAttemptModel({
@@ -44,7 +45,7 @@ test("explicit effort-qualified Gemini model ids remain exact across OpenClaw th
       liveModels,
     });
     assert.equal(high.modelId, "gemini-3.8-flash-high");
-    assert.equal(high.selectedEffort, "high");
+    assert.equal(high.selectedEffort, undefined);
   }
 });
 
@@ -123,4 +124,72 @@ test("resume requires the same concrete AGY model that owns the bound conversati
       }),
     /no canonical bound model id/,
   );
+});
+
+function nativeReport(name: string, data: unknown, response = "", extra: Record<string, unknown> = {}) {
+  return JSON.stringify({ status: "SUCCESS", conversation_id: "", num_turns: 0,
+    usage: { total_tokens: 0 }, command: { name, data }, response, ...extra });
+}
+
+test("AGY effort capability is zero-turn model metadata, never inferred from suffixes", () => {
+  const observation = parseAgyEffortOutput(nativeReport("effort", { adjustable: true, current: "high", available: ["low", "high", "xhigh"] }));
+  assert.deepEqual(observation, { adjustable: true, current: "high", available: ["low", "high", "xhigh"] });
+  assert.deepEqual(parseAgyEffortOutput(nativeReport("effort", { adjustable: false })), { adjustable: false });
+  for (const report of [
+    nativeReport("effort", { adjustable: true, current: "high", available: ["low"] }),
+    nativeReport("effort", { adjustable: true, current: "high", available: ["high", "turbo"] }),
+    nativeReport("effort", { adjustable: true, current: "high", available: ["high", "high"] }),
+    nativeReport("effort", { adjustable: true, current: "high", available: ["high"] }, "", { num_turns: 1 }),
+    nativeReport("effort", { adjustable: true, current: "high", available: ["high"] }, "", { usage: { total_tokens: 1 } }),
+  ]) assert.throws(() => parseAgyEffortOutput(report), /unverified-report/);
+  const modelId = "opaque";
+  const profile = resolveAgyThinkingProfile({ provider: "antigravity", modelId, params: { antigravityEffort: { modelId, observation } } });
+  assert.equal(profile?.defaultLevel, "off");
+  assert.deepEqual(profile?.levels.map(level => level.id), ["off", "low", "high", "xhigh"]);
+  assert.deepEqual(resolveAgyThinkingProfile({ provider: "antigravity", modelId: "other", params: { antigravityEffort: { modelId, observation } } })?.levels.map(level => level.id), ["off"]);
+});
+
+test("structured native model identity and exact TSV must agree with the selected live row", () => {
+  const rows = [{ id: "opaque-a", name: "Alpha (Low)" }, { id: "opaque-b", name: "Alpha (High)" }];
+  const model = { id: "opaque-b", label: "Alpha (High)", effort: "high", is_default: false };
+  const response = "opaque-b\tAlpha (High)\n";
+  assert.deepEqual(parseAgySelectedModelOutput(nativeReport("model", model, response), rows, "opaque-b"), model);
+  for (const [data, text] of [
+    [{}, response],
+    [model, "opaque-b"],
+    [model, "Alpha (High)"],
+    [model, "opaque-a\tAlpha (Low)\n"],
+    [{ ...model, effort: "turbo" }, response],
+    [{ ...model, label: "Beta (High)" }, "opaque-b\tBeta (High)\n"],
+  ] as const) {
+    assert.throws(() => parseAgySelectedModelOutput(nativeReport("model", data, text), rows, "opaque-b"), /effective-model-unverified/);
+  }
+  assert.throws(() => parseAgySelectedModelOutput(nativeReport("model", model, response), rows, "opaque-a"), /effective-model-unverified/);
+});
+
+test("verified effort resolves opaque IDs from corroborated native labels and preserves exact resume identity", () => {
+  const rows = [{ id: "opaque-a", name: "Alpha (Low)" }, { id: "opaque-b", name: "Alpha (High)" }];
+  const observation = parseAgyEffortOutput(nativeReport("effort", { adjustable: true, current: "low", available: ["low", "high"] }));
+  const effectiveObservation = parseAgyEffortOutput(nativeReport("effort", { adjustable: true, current: "high", available: ["low", "high"] }));
+  const requestedModel = parseAgySelectedModelOutput(nativeReport("model",
+    { id: "opaque-a", label: "Alpha (Low)", effort: "low", is_default: false }, "opaque-a\tAlpha (Low)\n"), rows, "opaque-a");
+  const effectiveModel = parseAgySelectedModelOutput(nativeReport("model",
+    { id: "opaque-b", label: "Alpha (High)", effort: "high", is_default: false }, "opaque-b\tAlpha (High)\n"), rows, "opaque-b");
+  const request = { modelId: "opaque-a", thinkLevel: "high" as const, liveModels: rows, observation, requestedModel };
+  assert.throws(() => resolveAgyEffortSelection(request), /effective-model-unverified/);
+  const proven = { ...request, effectiveModel, effectiveObservation };
+  assert.equal(resolveAgyEffortSelection(proven).modelId, "opaque-b");
+  assert.equal(resolveAgyEffortSelection({ ...proven, boundModelId: "opaque-b" }).selectedEffort?.effort, "high");
+  assert.throws(() => resolveAgyEffortSelection({ ...proven, boundModelId: "opaque-a" }), /resume-variant-change/);
+  assert.equal(resolveAgyEffortSelection({ ...request, thinkLevel: "off" }).selectedEffort, undefined);
+  assert.equal(resolveAgyEffortSelection({ ...request, thinkLevel: "low" }).selectedEffort?.effort, "low");
+  for (const thinkLevel of ["minimal", "medium", "adaptive", "ultra", "max", "xhigh"] as const) {
+    assert.throws(() => resolveAgyEffortSelection({ ...request, thinkLevel }), /unsupported-level/);
+  }
+  assert.throws(() => resolveAgyEffortSelection({ ...request, observation: { adjustable: false } }), /fixed-or-unobserved/);
+  assert.throws(() => resolveAgyEffortSelection({ ...proven, liveModels: [...rows, { id: "ambiguous", name: "Alpha (High)" }] }), /effective-model-unverified/);
+  assert.throws(() => resolveAgyEffortSelection({ ...proven, effectiveObservation: { adjustable: true, current: "high", available: ["high"] } }), /effective-model-unverified/);
+  assert.throws(() => resolveAgyEffortSelection({ ...proven, effectiveModel: { ...effectiveModel, effort: "low" } }), /effective-model-unverified/);
+  // A matching slug suffix cannot authorize crossing a differently named family.
+  assert.throws(() => resolveAgyEffortSelection({ ...proven, liveModels: [rows[0]!, { id: "opaque-b", name: "Beta (High)" }] }), /effective-model-unverified/);
 });

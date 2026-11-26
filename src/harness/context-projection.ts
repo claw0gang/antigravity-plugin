@@ -43,6 +43,7 @@ export interface AntigravityHostProjection {
   prompt: string;
   dispositions: AntigravityInstructionDisposition[];
   requiredNativeFlags: string[];
+  /** Describes the current instruction carrier; never an account identity. */
   nativeAgentDefinitionIdentity?: string;
   /** Caller invokes this at the last prelaunch boundary and on resume. */
   assertCurrent: () => void;
@@ -77,9 +78,13 @@ function projectPromptContextBoundary(
   if (provenance !== undefined) {
     if (!provenance || typeof provenance !== "object" || Array.isArray(provenance)) rejectMalformed("inputProvenance");
     const value = provenance as Record<string, unknown>;
-    const metadataKeys = ["originSessionId", "sourceSessionKey", "sourceChannel", "sourceTool"];
+    const metadataKeys = [
+      "originSessionId", "sourceSessionKey", "sourceChannel", "sourceTool",
+      "sourcePromptPrefix", "jobId", "runId",
+    ];
     if (!["external_user", "inter_session", "internal_system"].includes(value.kind as string) ||
-        Object.keys(value).some((key) => key !== "kind" && !metadataKeys.includes(key)) ||
+        Object.keys(value).some((key) => key !== "kind" && key !== "sourceRole" && !metadataKeys.includes(key)) ||
+        (value.sourceRole !== undefined && value.sourceRole !== "subagent") ||
         metadataKeys.some((key) => value[key] !== undefined && typeof value[key] !== "string")) {
       rejectMalformed("inputProvenance");
     }
@@ -163,11 +168,18 @@ export function projectAntigravityHostContext(
   },
 ): AntigravityHostProjection {
   attempt.hostCapabilities.assertActive();
+  // Older supported hosts supplied this field; 2026.11.7 expresses sandbox
+  // requirements through sandbox.required instead. Retain the old prevention
+  // check without pretending it is still part of the current SDK type.
+  const legacyWritableSandbox: unknown = (attempt as unknown as Record<string, unknown>).requireWritableSandbox;
+  if (legacyWritableSandbox !== undefined && typeof legacyWritableSandbox !== "boolean") {
+    rejectMalformed("requireWritableSandbox");
+  }
   for (const field of ["prompt", "extraSystemPrompt", "gitCoauthorPrompt"] as const) {
     if (attempt[field] !== undefined && typeof attempt[field] !== "string") rejectMalformed(field);
   }
   if (typeof attempt.prompt !== "string") rejectMalformed("prompt");
-  for (const field of ["pluginHarnessToolPolicyRestricted", "disableTools", "requireWorkspaceOnly", "requireWritableSandbox"] as const) {
+  for (const field of ["pluginHarnessToolPolicyRestricted", "disableTools", "requireWorkspaceOnly"] as const) {
     if (attempt[field] !== undefined && typeof attempt[field] !== "boolean") rejectMalformed(field);
   }
   for (const field of ["runtimeContextFragments", "explicitSkillSelections", "pluginHarnessToolPolicySafeDeniedTools", "toolsAllow", "toolExecutionAllow", "clientTools", "internalEvents"] as const) {
@@ -247,7 +259,7 @@ export function projectAntigravityHostContext(
     // prevention constraint here; it does not disable AGY's own permissions.
     ["permissionMode", attempt.permissionMode !== undefined && attempt.permissionMode !== "full"],
     ["requireWorkspaceOnly", attempt.requireWorkspaceOnly === true],
-    ["requireWritableSandbox", attempt.requireWritableSandbox === true],
+    ["requireWritableSandbox", legacyWritableSandbox === true],
     ["sandbox", attempt.sandbox?.enabled === true || attempt.sandbox?.required === true],
     ["clientTools", Boolean(attempt.clientTools?.length)],
     ["scheduledToolPolicy", attempt.scheduledToolPolicy !== undefined],
@@ -277,7 +289,7 @@ export function projectAntigravityHostContext(
     preserved.set(mapping.originRef, mapping.requirementDigest);
   }
   // A configured agent can change native instructions/tools even without an
-  // extra host instruction. Its exact definition still belongs to session scope.
+  // extra host instruction. Validate its current definition for this turn.
   let nativeCarrierUsed = options.nativeAgentName !== undefined;
   if (nativeCarrierUsed && !carrierMatches) dispositions.push({
     originRef: "nativeAgentDefinitionIdentity", disposition: "rejected-required",

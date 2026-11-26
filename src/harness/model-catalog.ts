@@ -1,11 +1,12 @@
 import { runAgyRawProcess } from "../cli/agy-process.js";
 import { createInvocationScope, type InvocationScope } from "../cli/invocation-scope.js";
+import type { AgyEffortObservation } from "./model-capabilities.js";
 
 export const MAX_MODEL_LIST_OUTPUT_BYTES = 2 * 1024 * 1024;
 export const MAX_MODEL_LIST_ROWS = 5000;
 export const MAX_MODEL_LIST_TIMEOUT_MS = 10_000;
 
-export type AgyDiscoveredModel = { id: string; name: string };
+export type AgyDiscoveredModel = { id: string; name: string; effort?: AgyEffortObservation };
 export type AgyModelListCommandResult = { exitCode: number; stdout: string; stderr: string };
 export type AgyModelListExecutor = (params: {
   command: string;

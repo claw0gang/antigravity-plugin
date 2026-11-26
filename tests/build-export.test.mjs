@@ -35,7 +35,7 @@ test("export reproduces bytes and manifest while unlisted private files stay exc
 
 test("explicit private paths and symlinked public paths reject before export creation", async (t) => {
   const { root, parent } = await fixture(t);
-  await writeFile(path.join(root, "public-export.json"), JSON.stringify({ schemaVersion: 1, files: [".state/current.json"] }));
+  await writeFile(path.join(root, "public-export.json"), JSON.stringify({ schemaVersion: 1, files: [".state/example.json"] }));
   await assert.rejects(exportPublic(root, path.join(parent, "private")), /Private\/generated path/);
   await assert.rejects(readFile(path.join(parent, "private", "public-export-manifest.json")), { code: "ENOENT" });
   await mkdir(path.join(parent, "secrets"));

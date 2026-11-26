@@ -18,6 +18,8 @@ A newer stable OpenClaw release is not rejected merely because its version numbe
 
 The exact SDK build version remains package provenance. It does not mean only that OpenClaw release is supported.
 
+Release 0.3.4 was built against OpenClaw SDK 2026.11.7. Ordinary catalog and native execution were observed on OpenClaw 2026.11.8 with AGY 1.5.17. The live fresh, resume and reset cases completed successfully on the configured native route; this does not qualify every model, startup state or host.
+
 ## Product-owned validation
 
 For a frozen candidate source tree, use the repository's locked development inputs and run the product checks against candidate-owned files only:
@@ -70,9 +72,9 @@ Current-host live acceptance should concentrate on the ANTIGRAVITY-sensitive bou
 - fresh native execution;
 - exact conversation resume semantics;
 - reset/new-conversation behavior where it can be exercised without production OpenClaw mutation; and
-- exact model/project/account isolation.
+- exact selected model, configured project arguments and canonical OpenClaw session ownership.
 
-Never use `--continue`; resumed native execution must use the exact bound AGY conversation identity.
+Never use `--continue`; resumed native execution must use the exact bound AGY conversation identity. AGY owns authentication, project access and conversation authorization. Do not inspect native credentials, independently identify accounts, or add speculative account-switching tests.
 
 ## Evidence and failure classification
 
@@ -90,18 +92,10 @@ Raw credentials, account identifiers, project identifiers, Gateway tokens, and c
 
 ## Production boundary
 
-On `aphenon-tokyo`, OpenClaw is production. Without separate explicit founder authority, ANTIGRAVITY qualification must not install the candidate into production OpenClaw or alter production OpenClaw/Gateway/config/state in any way.
+Do not install a qualification candidate into production or alter production OpenClaw, Gateway configuration or session state.
 
 Candidate installation tests belong in candidate-owned isolated environments. Production compatibility is read-only.
 
-## Completion
+## Evidence boundaries
 
-A candidate becomes ready for behavioral acceptance only after:
-
-1. product build/test/package/export checks pass on one exact candidate;
-2. a new immutable artifact identity is frozen;
-3. required read-only current-host OpenClaw compatibility observation passes;
-4. required bounded AGY/plugin live checks pass under their explicit authority; and
-5. the founder completes the required personal live-agent acceptance.
-
-Independent critic/review follows those acceptance steps. Publication, accepted-main merge, production deployment and production OpenClaw changes require their own authority.
+Build/package checks, supported host compatibility and live native execution establish distinct observations. Do not extrapolate results to untested models, configurations or hosts. Keep evidence private where it contains account, host, project or session identifiers.

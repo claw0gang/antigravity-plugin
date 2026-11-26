@@ -54,6 +54,10 @@ test("f01: ordinary and explicitly external-user provenance preserve the exact u
       kind: "external_user", originSessionId: "session-source", sourceSessionKey: "agent:main:source",
       sourceChannel: "telegram", sourceTool: "channel-input",
     },
+    {
+      kind: "external_user", sourceRole: "subagent", sourcePromptPrefix: "host-owned attribution",
+      jobId: "job-11-7", runId: "run-11-7",
+    },
   ]) {
     const input = attempt({
       inputProvenance,
@@ -70,11 +74,16 @@ test("f01: non-user and malformed provenance cannot acquire user-role authority 
   const rejected: unknown[] = [
     { kind: "inter_session", sourceSessionKey: privateValue, sourceTool: "sessions_send" },
     { kind: "internal_system", sourceTool: privateValue },
+    { kind: "inter_session", sourceRole: "subagent", sourcePromptPrefix: privateValue, jobId: "job", runId: "run" },
     null, false, "external_user", [], {}, { kind: "EXTERNAL_USER" }, { kind: privateValue },
     { kind: "external_user", sourceSessionKey: null },
     { kind: "external_user", sourceTool: 17 },
     { kind: "external_user", originSessionId: {} },
     { kind: "external_user", sourceChannel: [] },
+    { kind: "external_user", sourceRole: "operator" },
+    { kind: "external_user", sourcePromptPrefix: {} },
+    { kind: "external_user", jobId: 1 },
+    { kind: "external_user", runId: [] },
     { kind: "external_user", unexpected: privateValue },
   ];
   for (const phase of ["fresh", "resume"] as const) {

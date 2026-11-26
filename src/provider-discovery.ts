@@ -1,15 +1,15 @@
 import type { ProviderPlugin } from "./host/types.js";
 
 import { resolveAntigravityPluginConfig } from "./config.js";
+import { resolveAgyThinkingProfile } from "./harness/model-capabilities.js";
 import { AgyHostInventoryOwner, type AgyHostInventoryOptions } from "./inventory-scope.js";
 import {
   ANTIGRAVITY_PROVIDER_ID,
-  buildAntigravityProviderCatalog,
-  prepareAntigravitySyntheticAuth,
+  createAntigravityProviderCatalogHook,
 } from "./provider.js";
 
 export type CreateAntigravityProviderDiscoveryOptions = Pick<
-  AgyHostInventoryOptions, "discoverModels" | "inventory" | "inventoryOwner"
+  AgyHostInventoryOptions, "discoverModels" | "inventory" | "inventoryOwner" | "observeEffort"
 >;
 
 /**
@@ -22,21 +22,12 @@ export function createAntigravityProviderDiscovery(
 ): ProviderPlugin {
   const pluginConfig = resolveAntigravityPluginConfig(undefined);
   const inventoryOwner = options.inventoryOwner ?? new AgyHostInventoryOwner({ ...options, pluginConfig });
-  const sharedOptions = { ...options, pluginConfig, inventoryOwner };
   return {
     id: ANTIGRAVITY_PROVIDER_ID,
     label: "Google Antigravity native runtime",
     auth: [],
-    prepareSyntheticAuth(ctx) {
-      return prepareAntigravitySyntheticAuth(sharedOptions, ctx);
-    },
-    catalog: {
-      order: "simple",
-      async run(ctx) {
-        const models = await inventoryOwner.models(ctx);
-        return { provider: buildAntigravityProviderCatalog(models) };
-      },
-    },
+    resolveThinkingProfile: resolveAgyThinkingProfile,
+    catalog: createAntigravityProviderCatalogHook(inventoryOwner, true),
   };
 }
 

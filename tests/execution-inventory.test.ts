@@ -39,7 +39,7 @@ const model = args[args.indexOf('--model') + 1];
 const conversation = args.includes('--conversation') ? args[args.indexOf('--conversation') + 1] : 'inventory-conversation';
 fs.appendFileSync(${JSON.stringify(callsPath)}, JSON.stringify({args, model, prompt})+'\\n');
 process.stdout.write(JSON.stringify({event:'init',conversation_id:conversation,init:{cwd:process.cwd(),tools:[],permission_mode:'request-review',model}})+'\\n');
-process.stdout.write(JSON.stringify({event:'result',result:{conversation_id:conversation,status:'SUCCESS',response:'done',duration_seconds:0.01,num_turns:1}})+'\\n');
+process.stdout.write(JSON.stringify({event:'result',result:{conversation_id:conversation,status:'SUCCESS',response:'done',duration_seconds:0.01,num_turns:1,usage:{input_tokens:1,output_tokens:1,thinking_tokens:0,cache_read_tokens:0,total_tokens:2}}})+'\\n');
 `, { mode: 0o700 });
     const sessionKey = "agent:main:inventory";
     const sessionId = "inventory-session";
@@ -60,6 +60,7 @@ process.stdout.write(JSON.stringify({event:'result',result:{conversation_id:conv
       hostContracts: sourceHostContracts(), inventory });
     await writeFile(inventoryPath, JSON.stringify({ models: [{ id: modelId, name: "Future model" }] }));
     const first = await execute();
+    assert.equal(first.terminal.kind, "ok", first.antigravityOutcome.explanation);
     assert.equal(first.antigravityEvidence.invocation, "started");
     assert.equal(first.antigravityEvidence.nativeIdentityVerified, true);
     const rows = () => readFile(callsPath, "utf8").then(text => text.trim().split("\n").map(row => JSON.parse(row)));
@@ -67,18 +68,20 @@ process.stdout.write(JSON.stringify({event:'result',result:{conversation_id:conv
     assert.equal(sent.length, 1);
     assert.equal(sent[0].model, modelId);
     assert.equal(sent[0].args.includes("--effort"), false);
-    assert.equal(sessionBindings.resolve({ agentId: "main", storePath: join(root, "SIMULATED-store.json"), openclawSessionId: sessionId, openclawSessionKey: sessionKey })?.modelId, modelId);
+    assert.equal((await sessionBindings.resolve({ agentId: "main", storePath: join(root, "SIMULATED-store.json"), openclawSessionId: sessionId, openclawSessionKey: sessionKey }))?.modelId, modelId);
 
     // Same exact host owner/session/config and still-visible host model input:
     // every next attempt must discover, including after a prior positive result.
+    let expectedDiscoveryCalls = 1;
     for (const output of [JSON.stringify({ models: [{ id: "replacement", name: "Replacement" }] }), '{"models":[]}', "AUTH", '{"models":']) {
       await writeFile(inventoryPath, output);
       const rejected = await execute();
       assert.equal(rejected.antigravityEvidence.invocation, "not_started");
+      assert.equal((await rows()).filter(row => row.discovery).length, ++expectedDiscoveryCalls, rejected.antigravityOutcome.explanation);
       assert.equal((await rows()).filter(row => row.args).length, 1);
     }
     assert.equal((await rows()).filter(row => row.discovery).length, 5);
-    assert.equal(sessionBindings.resolve({ agentId: "main", storePath: join(root, "SIMULATED-store.json"), openclawSessionId: sessionId, openclawSessionKey: sessionKey })?.conversationId, "inventory-conversation");
+    assert.equal((await sessionBindings.resolve({ agentId: "main", storePath: join(root, "SIMULATED-store.json"), openclawSessionId: sessionId, openclawSessionKey: sessionKey }))?.conversationId, "inventory-conversation");
   } finally {
     inventory.stop();
     await rm(root, { recursive: true, force: true });

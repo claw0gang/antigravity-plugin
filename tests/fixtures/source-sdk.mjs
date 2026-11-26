@@ -38,4 +38,14 @@ export const agentHarnessAttemptTerminal = Object.freeze({
     }
     return terminal;
   },
+  setFailure(terminal, failure) {
+    if (terminal.kind === "timeout" && terminal.source === "observation") {
+      return { kind: "failed", ...failure, timeoutObservation: terminal.phase };
+    }
+    if (terminal.kind === "failed" || terminal.kind === "ok") {
+      return { kind: "failed", ...failure,
+        ...(terminal.timeoutObservation ? { timeoutObservation: terminal.timeoutObservation } : {}) };
+    }
+    return { ...terminal, failure };
+  },
 });

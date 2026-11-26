@@ -6,10 +6,10 @@ user-invocable: false
 
 # Antigravity subagents
 
-Use Antigravity through OpenClaw's normal subagent lifecycle.
+Use Antigravity through OpenClaw's normal subagent lifecycle. Native turns in the current source candidate require a separately qualified host runtime adapter; ordinary registration provides live discovery but rejects execution before launch. Report the missing identity capability instead of trying a configuration or direct-CLI workaround.
 
 - Delegate with `sessions_spawn` using the exact requested `antigravity/*` model. Do not silently substitute another model or runtime.
-- Prefer native `antigravity/*`. Use `antigravity-cli/*` only when the operator explicitly selected compatibility mode.
+- Use the single native `antigravity` provider/harness and exact live model IDs. The former `antigravity-cli/*` backend is removed; never silently convert its sessions or select it as a fallback.
 - Let OpenClaw own spawn, yield/completion, sessions and routing. Do not invoke `agy` directly to create or manage OpenClaw subagents.
 - Preserve the caller's workspace and access restrictions. Do not change project roots, `addDirs`, sandbox settings or permissions to make a task succeed.
 - For AGY native file tools, use absolute paths inside the authorized OpenClaw workspace / AGY project scope. Do not assume relative paths will be accepted.

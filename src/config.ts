@@ -108,7 +108,7 @@ export function resolveAntigravityPluginConfig(value: unknown): AntigravityPlugi
   const command = optionalString(raw, "command") ?? "agy";
   const printTimeout = optionalString(raw, "printTimeout") ?? "30m";
   parseAgyPrintTimeoutMs(printTimeout);
-  const mode = optionalString(raw, "mode");
+  const mode = optionalString(raw, "mode") ?? "accept-edits";
   const agent = optionalString(raw, "agent");
   const project = optionalString(raw, "project");
   const logFile = optionalString(raw, "logFile");

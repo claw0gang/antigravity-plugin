@@ -196,14 +196,73 @@ test("native timeout warning preserves SUCCESS as native fact and fails completi
   assert.equal(error.evidence.terminal.nativeTimeout, true); assert.match(error.stderr, /timed out/); assert.equal(isReplaySafe(error.evidence), false);
 });
 
+for (const [reason, expectedKind] of [
+  ["print_timeout", "native_timeout"], ["interrupted", "aborted"], ["error", "protocol"],
+] as const) {
+  test(`finished_reason ${reason} overrides raw native status and process exit without losing partial evidence`, async () => {
+    for (const status of ["SUCCESS", "WAITING", "RUNNING"]) {
+      for (const exitCode of [0, 3]) {
+        const delta = { event: "step_update", step_update: { conversation_id: "c1", step_index: 0,
+          step_type: "agent_response", state: "ACTIVE", text_delta: "streamed partial 🦋" } };
+        const stopped = { ...terminal, result: { ...terminal.result, status,
+          response: "native partial 🦋", finished_reason: reason, error: "native stop diagnostic" } };
+        const error = await failure(runAgyStreamProcess({ command: process.execPath,
+          args: ["-e", write(lines(init, delta, stopped)) + `process.exitCode=${exitCode};`] }));
+        assert.equal(error.kind, expectedKind);
+        assert.equal(error.evidence.terminal.nativeStatus, status);
+        assert.equal(error.evidence.terminal.nativeTimeout === true, reason === "print_timeout");
+        assert.equal(error.evidence.terminal.protocolComplete, true);
+        assert.equal(error.evidence.termination.exitCode, exitCode);
+        assert.equal(error.partialSnapshot?.result?.finished_reason, reason);
+        assert.equal(error.partialSnapshot?.result?.response, "native partial 🦋");
+        assert.equal(error.partialSnapshot?.assistantText, "streamed partial 🦋");
+        assert.deepEqual(error.evidence.accounting.raw, usage);
+        assert.equal(isReplaySafe(error.evidence), false);
+        if (reason === "error") assert.match(error.message, /finished_reason error: native stop diagnostic/);
+      }
+    }
+  });
+}
+
+test("nonterminal status without finished_reason still rejects apparent process success", async () => {
+  for (const status of ["WAITING", "RUNNING"]) {
+    const stopped = { ...terminal, result: { ...terminal.result, status } };
+    const error = await failure(runAgyStreamProcess({ command: process.execPath,
+      args: ["-e", write(lines(init, stopped))] }));
+    assert.equal(error.kind, "protocol");
+    assert.equal(error.evidence.terminal.nativeStatus, status);
+    assert.equal(error.evidence.terminal.protocolComplete, false);
+    assert.equal(error.partialSnapshot?.result?.finished_reason, undefined);
+    assert.equal(error.partialSnapshot?.result?.response, "done");
+    assert.equal(isReplaySafe(error.evidence), false);
+  }
+});
+
+test("unknown finished_reason keeps parsed output and exposes the unsupported field", async () => {
+  const delta = { event: "step_update", step_update: { conversation_id: "c1", step_index: 0,
+    step_type: "agent_response", state: "ACTIVE", text_delta: "partial before unknown stop" } };
+  for (const reason of [null, "normal", "future_stop"]) {
+    const stopped = { ...terminal, result: { ...terminal.result, finished_reason: reason } };
+    const error = await failure(runAgyStreamProcess({ command: process.execPath,
+      args: ["-e", write(lines(init, delta, stopped))] }));
+    assert.equal(error.kind, "protocol");
+    assert.match(error.message, /result\.finished_reason/);
+    if (typeof reason === "string") assert.match(error.message, new RegExp(reason));
+    assert.equal(error.partialSnapshot?.assistantText, "partial before unknown stop");
+    assert.equal(error.partialSnapshot?.result, undefined);
+    assert.equal(error.evidence.terminal.protocolComplete, false);
+    assert.equal(isReplaySafe(error.evidence), false);
+  }
+});
+
 test("normal parent exit terminates an owned descendant retaining pipes", async () => {
   await fixture(async (dir) => {
     const marker = join(dir, "survivor");
     const pidPath = join(dir, "pid");
-    const descendant = markerScript(pidPath).replace("'effect'", "String(process.pid)") +
-      `process.on('SIGTERM',()=>{});setTimeout(()=>{${markerScript(marker)}},2500);setInterval(()=>{},1000);`;
-    const script = `const cp=require('node:child_process').spawn(process.execPath,['-e',${JSON.stringify(descendant)}],{stdio:['ignore',process.stdout,process.stderr]});
-      setTimeout(()=>{${write(lines(init, terminal))}process.exit(0)},100);`;
+    const descendant = `process.on('SIGTERM',()=>{});` + markerScript(pidPath).replace("'effect'", "String(process.pid)") +
+      `setTimeout(()=>{${markerScript(marker)}},2500);setInterval(()=>{},1000);process.send('ready');`;
+    const script = `const cp=require('node:child_process').spawn(process.execPath,['-e',${JSON.stringify(descendant)}],{stdio:['ignore',process.stdout,process.stderr,'ipc']});
+      cp.once('message',()=>{${write(lines(init, terminal))}process.exit(0)});`;
     const started = performance.now();
     let descendantPid: number | undefined;
     try {
@@ -246,9 +305,10 @@ test("explicit detached daemon escapes the owned group; observable survival is n
   await fixture(async (dir) => {
     const escapedMarker = join(dir, "escaped");
     const pidPath = join(dir, "detached-pid");
-    const descendant = `require('node:fs').writeFileSync(${JSON.stringify(pidPath)}, String(process.pid));` +
+    const readyPath = join(dir, "detached-ready");
+    const descendant = markerScript(readyPath) +
       `setTimeout(()=>{${markerScript(escapedMarker)}},500);setInterval(()=>{},1000);`;
-    const script = `const cp=require('node:child_process').spawn(process.execPath,['-e',${JSON.stringify(descendant)}],{detached:true,stdio:'ignore'});cp.unref();setTimeout(()=>{${write(lines(init, terminal))}},100);`;
+    const script = `const fs=require('node:fs');const cp=require('node:child_process').spawn(process.execPath,['-e',${JSON.stringify(descendant)}],{detached:true,stdio:'ignore'});fs.writeFileSync(${JSON.stringify(pidPath)},String(cp.pid));cp.unref();const ready=setInterval(()=>{if(fs.existsSync(${JSON.stringify(readyPath)})){clearInterval(ready);${write(lines(init, terminal))}}},10);`;
     let pid: number | undefined;
     try {
       const result = await runAgyStreamProcess({ command: process.execPath, args: ["-e", script], timeoutMs: 2_000 });

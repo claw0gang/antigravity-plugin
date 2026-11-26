@@ -1,7 +1,9 @@
 import type { AgentHarnessAttemptParamsV2, AgentHarnessV2 } from "../host/types.js";
 import { agentHarnessAttemptTerminal } from "../host/terminal.js";
 import type { AntigravityPluginConfig } from "../config.js";
-import { deriveAgyNativeModelCapabilities } from "./model-capabilities.js";
+import { agyEffortMetadata, deriveAgyNativeModelCapabilities } from "./model-capabilities.js";
+import { AgyInventoryError } from "../inventory.js";
+import { InvocationScopeError } from "../cli/invocation-scope.js";
 import { resolveAgyHostInventoryOwner, type AgyHostInventoryOptions } from "../inventory-scope.js";
 import { runAntigravityAttempt } from "./run-attempt.js";
 import {
@@ -15,11 +17,14 @@ import {
 } from "./native-agent-carrier.js";
 import { ANTIGRAVITY_OPENCLAW_SAFE_DENY_TOOLS } from "./tool-policy.js";
 import { persistAntigravityCompletedAssistant } from "./transcript-result.js";
+import { appendDiagnostic, terminalDiagnostic } from "./diagnostics.js";
+import { buildAntigravityFailureResult } from "./result.js";
 
 export type CreateAntigravityHarnessOptions = AgyHostInventoryOptions & {
   pluginConfig: AntigravityPluginConfig;
   sessionRuntime: AntigravitySessionRuntime;
   hostContracts?: AntigravityHostContracts;
+  nativeCatalogControls?: boolean;
 };
 
 /**
@@ -118,6 +123,7 @@ export function createAntigravityHarness(
     label: "Google Antigravity native agent runtime",
     autoSelection: { providerIds: ["antigravity"] },
     authBootstrap: "harness",
+    executionEnvironment: "host-only",
     conversationToolPolicySupport: "exact",
     conversationToolPolicySafeDenyTools: ANTIGRAVITY_OPENCLAW_SAFE_DENY_TOOLS,
 
@@ -135,16 +141,39 @@ export function createAntigravityHarness(
           reason: "effective antigravity provider route is not exclusively owned by this plugin",
         };
       }
-      if (ctx.modelProvider?.requestTransportOverrides === "present") {
+      if (ctx.modelProvider?.requestTransportOverrides === "present" ||
+          ctx.modelProvider?.endpointOverrides === "present") {
         return {
           supported: false,
           reason: "ANTIGRAVITY native runtime cannot reproduce authored provider transport overrides",
         };
       }
+      if (ctx.modelProvider?.runtimePolicy &&
+          !ctx.modelProvider.runtimePolicy.compatibleIds.includes("antigravity")) {
+        return {
+          supported: false,
+          reason: "prepared provider route does not permit the ANTIGRAVITY native runtime",
+        };
+      }
+      const auth = ctx.modelProvider?.preparedAuth;
+      if (auth?.source === "profile" ||
+          auth?.source === "direct" ||
+          auth?.requirement === "api-key") {
+        return {
+          supported: false,
+          reason: "ANTIGRAVITY uses its native login and cannot forward an OpenClaw credential",
+        };
+      }
+      // Native readiness does not invent an OpenClaw credential or authentication mode.
+      // Older hosts omit these route facts; the exact attempt binding is checked below.
       return { supported: true, priority: 100 };
     },
 
     async runAttempt(attempt) {
+      if (attempt.authProfileId || attempt.runtimePlan?.auth.forwardedAuthProfileId ||
+          attempt.resolvedApiKey) {
+        throw new Error("ANTIGRAVITY uses its native login and cannot forward the selected OpenClaw credential");
+      }
       const legacyNormalized = normalizeOpenClawLegacyContextEngineAttempt(attempt);
       const lease = carrierManager.acquire(legacyNormalized);
       try {
@@ -161,33 +190,34 @@ export function createAntigravityHarness(
           pluginConfig,
           sessionBindings,
           inventory: inventoryOwner.inventory,
+          nativeEffortControls: options.nativeCatalogControls === true,
           ...(hostContracts ? { hostContracts } : {}),
         });
         try {
           // Keep transcript durability independent from ordinary delivery.
           // Revalidate immediately before the public strict append; the append
           // separately rejects a session-id rebound at its commit boundary.
-          result.antigravityDeliveryGuard?.();
+          await result.antigravityDeliveryGuard?.();
           await persistAntigravityCompletedAssistant({
             attempt: policyNormalized,
             result,
           });
+          await result.antigravityDeliveryGuard?.();
           return result;
         } catch (error) {
-          const failure = error instanceof Error ? error : new Error(String(error));
-          // Native completion already happened. A missing canonical mirror is
-          // not safely replayable; fail closed without repeating AGY work.
+          const diagnostic = appendDiagnostic(terminalDiagnostic(result.terminal), "delivery", error, result.antigravityEvidence);
+          // No assistant payload (even a synthetic explanation) is authorized
+          // by a failed fence. Let the host project the terminal diagnostic.
           return {
-            ...result,
-            terminal: agentHarnessAttemptTerminal.setFailure(result.terminal, {
-              source: "prompt",
-              error: failure,
-            }),
-            antigravityOutcome: Object.freeze({
-              ...result.antigravityOutcome,
-              kind: result.antigravityOutcome.availableOutput ? "partial" : "failed",
-              explanation:
-                `ANTIGRAVITY: Native completion transcript persistence failed. ${failure.message}`,
+            ...buildAntigravityFailureResult({
+              attempt: policyNormalized,
+              evidence: result.antigravityEvidence,
+              error: diagnostic,
+              suppressNativeOutput: true,
+              terminal: agentHarnessAttemptTerminal.setFailure(result.terminal, {
+                source: "prompt",
+                error: diagnostic,
+              }),
             }),
             replayMetadata: { hadPotentialSideEffects: true, replaySafe: false },
             currentAttemptReplayMetadata: { hadPotentialSideEffects: true, replaySafe: false },
@@ -198,37 +228,46 @@ export function createAntigravityHarness(
       }
     },
 
-    async loadModelCatalog(ctx) {
-      const models = await inventoryOwner.models(ctx);
-      return models.map((model) => ({
-        id: model.id,
-        name: model.name,
-        provider: "antigravity",
-        nativeRuntime: "antigravity",
-        reasoning: deriveAgyNativeModelCapabilities(model.id, models).reasoning,
-      }));
+    readModelCatalogReadiness(ctx) {
+      return inventoryOwner.readiness(ctx, options.nativeCatalogControls === true);
     },
 
-    async reset(params) {
-      if (!params.sessionId?.trim()) return;
-      const requested = {
-        openclawSessionId: params.sessionId,
-        ...(params.sessionKey?.trim() ? { openclawSessionKey: params.sessionKey } : {}),
-        ...(params.agentId?.trim() ? { agentId: params.agentId } : {}),
-      };
-      const host = options.hostContracts;
-      if (!host?.resolveResetSession || !host.cancelAndDrain) {
-        throw new Error("ANTIGRAVITY reset requires qualified canonical target resolution and host cancellation/drain (P05)");
+    async loadModelCatalog(ctx) {
+      try {
+        const models = options.nativeCatalogControls
+          ? await inventoryOwner.catalogModels(ctx, (ctx.configuredModelRefs ?? [])
+              .filter(ref => ref.provider === "antigravity").map(ref => ref.model))
+          : await inventoryOwner.models(ctx);
+        const entries = models.map(model => {
+          const params = agyEffortMetadata(model);
+          return {
+            id: model.id, name: model.name, provider: "antigravity", nativeRuntime: "antigravity",
+            reasoning: deriveAgyNativeModelCapabilities(model.id, models).reasoning,
+            ...(params === undefined ? {} : { params }),
+          };
+        });
+        return options.nativeCatalogControls
+          ? { entries, outcomes: [{ provider: "antigravity", status: "ready" as const }] }
+          : entries;
+      } catch (error) {
+        // Generation/cancellation remain terminal to this publication. A
+        // classified acquisition failure is not evidence of AGY login failure.
+        if (options.nativeCatalogControls && (
+          (error instanceof AgyInventoryError && !["retired", "aborted"].includes(error.kind)) ||
+          (error instanceof InvocationScopeError && error.kind !== "aborted")
+        )) return { entries: [], outcomes: [{ provider: "antigravity", status: "unavailable" }] };
+        throw error;
       }
-      const target = host.resolveResetSession(requested);
-      if (target.openclawSessionId !== requested.openclawSessionId ||
-          (requested.openclawSessionKey !== undefined && target.openclawSessionKey !== requested.openclawSessionKey) ||
-          (requested.agentId !== undefined && target.agentId !== requested.agentId)) {
-        throw new Error("ANTIGRAVITY reset adapter resolved a different canonical session");
-      }
-      await sessionBindings.clear({ ...target,
-        cancelAndDrain: () => host.cancelAndDrain!(target),
-      });
     },
+
+    // Retire the physical observation owner with its native runtime generation.
+    // Service shutdown is retained for hosts using the service lifecycle.
+    dispose() { inventoryOwner.stop(); },
+
+    // No reset hook: OpenClaw owns reset admission, abort/drain and replacement
+    // of its canonical entry, including this plugin's binding extension. A
+    // second plugin reset would run for unrelated harnesses and cannot safely
+    // resolve a store from AgentHarnessResetParams. Attempt and delivery guards
+    // still reject an old lifecycle revision or a missing/replaced entry.
   };
 }

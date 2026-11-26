@@ -24,9 +24,8 @@ export type AttemptEvidence = {
   requestedModelId?: string;
   acknowledgedModelId?: string;
   conversationId?: string;
+  /** The parser observed the requested model; this is not account identification. */
   nativeIdentityVerified: boolean;
-  /** C03 adapter acknowledgement, distinct from the parser's model-ID match. */
-  runtimeScope?: { key: string; acknowledged: boolean };
   effects: "none_proven" | "observed_possible" | "unknown";
   outputObserved: boolean;
   deliveredOutput: boolean;
@@ -108,7 +107,6 @@ export function snapshotAttemptEvidence(evidence: AttemptEvidence): AttemptEvide
   }));
   Object.freeze(steps);
   return Object.freeze({ ...evidence,
-    ...(evidence.runtimeScope ? { runtimeScope: Object.freeze({ ...evidence.runtimeScope }) } : {}),
     accounting: Object.freeze({ ...evidence.accounting,
       ...(evidence.accounting.raw ? { raw: Object.freeze({ ...evidence.accounting.raw }) } : {}),
       steps,

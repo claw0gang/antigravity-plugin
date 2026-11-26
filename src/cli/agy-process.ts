@@ -232,6 +232,9 @@ async function runBoundedProcess(
       cwd: scope.cwd, env: { ...scope.env }, shell: false, detached: true,
       stdio: "pipe" as const,
     };
+    if (scope.assertCurrent) {
+      await boundedCallback(async (ctx) => { await scope.assertCurrent!(); ctx.assertActive(); }, context);
+    }
     context.assertActive();
     // Intentional CLI-bridge capability: command is a resolved executable, argv is structured,
     // shell execution is disabled, and model/user prompt content is delivered only over stdin.
@@ -379,9 +382,17 @@ async function runBoundedProcess(
   scope.signal?.addEventListener("abort", abort, { once: true });
   if (scope.signal?.aborted) abort();
   const deadlineTimer = setTimeout(() => fail(new AgyProcessError("timeout", "AGY process exceeded its invocation deadline")), Math.max(0, deadline - performance.now()));
-  const ownerTimer = setInterval(() => { if (!fatal) { try { context.assertActive(); } catch (error) { fail(error); } } }, 100);
+  let ownerCheck: Promise<void> | undefined;
+  const ownerTimer = setInterval(() => {
+    if (fatal || ownerCheck) return;
+    try { context.assertActive(); } catch (error) { fail(error); return; }
+    if (scope.assertCurrent) ownerCheck = boundedCallback(async (ctx) => {
+      await scope.assertCurrent!(); ctx.assertActive();
+    }, context).catch((error) => fail(error)).finally(() => { ownerCheck = undefined; });
+  }, 100);
   try {
     await stopped;
+    clearInterval(ownerTimer);
     const groupClean = await beginCleanup();
     const settlementDeadline = evidence.termination.settlementDeadlineMonoMs!;
     const pipeDeadline = settlementDeadline - AGY_PROCESS_LIMITS.cleanupMs;
@@ -391,8 +402,8 @@ async function runBoundedProcess(
       fail(new AgyProcessError("cleanup", "AGY inherited pipes did not close within the process cleanup allowance"));
       child.stdout!.destroy(); child.stderr!.destroy(); child.stdin!.destroy();
     }
-    while ((pumping || queue.length) && performance.now() < settlementDeadline) await delay(5);
-    if (pumping || queue.length) fail(new AgyProcessError("cleanup", "AGY callbacks did not drain before settlement"));
+    while ((pumping || queue.length || ownerCheck) && performance.now() < settlementDeadline) await delay(5);
+    if (pumping || queue.length || ownerCheck) fail(new AgyProcessError("cleanup", "AGY callbacks did not drain before settlement"));
     if (!fatal && stream) {
       let finishTimer: ReturnType<typeof setTimeout> | undefined;
       try {
@@ -404,7 +415,7 @@ async function runBoundedProcess(
         ]).catch((error) => fail(error));
       } finally { if (finishTimer !== undefined) clearTimeout(finishTimer); }
     }
-    evidence.termination.cleanupComplete = groupClean && streamsClosed && !forcedPipeClose && !pumping && queue.length === 0;
+    evidence.termination.cleanupComplete = groupClean && streamsClosed && !forcedPipeClose && !pumping && queue.length === 0 && !ownerCheck;
     if (!groupClean) fail(new AgyProcessError("cleanup", "AGY process group termination could not be established"));
     if (fatal) throw new AgyProcessError(fatal.kind, fatal.message, { cause: fatal.cause, stderr: redact(stderrRaw), evidence });
     if (exitCode === null) throw new AgyProcessError("process_terminal_mismatch", `AGY process ended without numeric exit${exitSignal ? ` (${exitSignal})` : ""}`, { stderr: redact(stderrRaw), evidence });
@@ -446,6 +457,7 @@ export async function runAgyStreamProcess(options: RunAgyStreamProcessOptions): 
       evidence.effects = "observed_possible";
     } else if (event.event === "result") {
       evidence.terminal.nativeStatus = event.result.status;
+      if (event.result.finished_reason === "print_timeout") evidence.terminal.nativeTimeout = true;
       evidence.terminal.deniedActions = event.result.denied_actions?.length ?? 0;
     }
     if (options.onEvent) {
@@ -475,7 +487,7 @@ export async function runAgyStreamProcess(options: RunAgyStreamProcessOptions): 
     try { snapshot = accumulator.finalize(); }
     catch (cause) { throw new AgyProcessError("protocol", "AGY stream did not complete its required terminal contract", { cause }); }
     evidence.terminal.protocolComplete = true;
-    const terminalSuccess = snapshot.result.status === "SUCCESS";
+    const terminalSuccess = snapshot.result.status === "SUCCESS" && snapshot.result.finished_reason === undefined;
     if (terminalSuccess && result.exitCode !== 0) {
       throw new AgyProcessError(
         "process_terminal_mismatch",
@@ -486,6 +498,13 @@ export async function runAgyStreamProcess(options: RunAgyStreamProcessOptions): 
     // zero. Preserve the native terminal status as authoritative failure
     // evidence; exit zero must never promote it to success.
     if (evidence.terminal.nativeTimeout) throw new AgyProcessError("native_timeout", "AGY reported native timeout or truncation despite its terminal status");
+    if (snapshot.result.finished_reason === "interrupted") {
+      throw new AgyProcessError("aborted", "AGY reported finished_reason interrupted; available output is partial");
+    }
+    if (snapshot.result.finished_reason === "error") {
+      const diagnostic = snapshot.result.error?.trim();
+      throw new AgyProcessError("protocol", `AGY reported finished_reason error${diagnostic ? `: ${diagnostic}` : ""}`);
+    }
     if (evidence.terminal.nativeCriticalWarning) throw new AgyProcessError("protocol", "AGY reported an unrecognized critical diagnostic; completed success is unproven");
     return { exitCode: result.exitCode, snapshot, stderr: result.stderr, evidence: snapshotAttemptEvidence(evidence) };
   } catch (error) {
@@ -495,6 +514,7 @@ export async function runAgyStreamProcess(options: RunAgyStreamProcessOptions): 
     if (partialSnapshot.conversationId !== undefined) evidence.conversationId = partialSnapshot.conversationId;
     if (partialSnapshot.result !== undefined) {
       evidence.terminal.nativeStatus = partialSnapshot.result.status;
+      if (partialSnapshot.result.finished_reason === "print_timeout") evidence.terminal.nativeTimeout = true;
       evidence.terminal.deniedActions = partialSnapshot.result.denied_actions?.length ?? 0;
     }
     const failure = processError(error);

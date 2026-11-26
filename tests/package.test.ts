@@ -27,13 +27,13 @@ const pkg = JSON.parse(
 };
 
 test("minimum OpenClaw runtime range stays distinct from exact SDK build provenance", () => {
-  assert.equal(pkg.version, "0.3.3");
+  assert.equal(pkg.version, "0.3.4");
   assert.equal(pkg.openclaw?.compat?.pluginApi, ">=2026.9.2");
   assert.equal(pkg.openclaw?.compat?.minGatewayVersion, ">=2026.9.2");
-  assert.equal(pkg.openclaw?.build?.openclawVersion, "2026.9.4");
-  assert.equal(pkg.openclaw?.build?.pluginSdkVersion, "2026.9.4");
+  assert.equal(pkg.openclaw?.build?.openclawVersion, "2026.11.7");
+  assert.equal(pkg.openclaw?.build?.pluginSdkVersion, "2026.11.7");
   assert.equal(pkg.peerDependencies?.openclaw, ">=2026.9.2");
-  assert.equal(pkg.devDependencies?.openclaw, "2026.9.4");
+  assert.equal(pkg.devDependencies?.openclaw, "2026.11.7");
   assert.notEqual(pkg.openclaw?.compat?.pluginApi, pkg.openclaw?.build?.pluginSdkVersion);
 });
 

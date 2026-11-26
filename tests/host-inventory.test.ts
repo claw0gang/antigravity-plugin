@@ -53,8 +53,8 @@ test("host hooks project addition, withdrawal and successful empty through one s
   assert.deepEqual(await providerIds(f.provider, ctx), []);
   assert.deepEqual(await f.catalog.liveCatalog!(ctx as never), []);
   assert.deepEqual(await f.harness.loadModelCatalog!({ ...ctx, agentId: "main" } as never), []);
-  // Successful empty discovery still proves discovery/auth, never model membership.
-  assert.ok(await f.provider.prepareSyntheticAuth!({ config: ctx.config, env: ctx.env, provider: "antigravity" } as never));
+  // Empty discovery is not native account or model readiness.
+  assert.equal(f.harness.readModelCatalogReadiness!({ ...ctx, agentId: "main", provider: "antigravity", modelId: "sonnet-4-6" } as never), undefined);
   assert.equal(await f.provider.prepareDynamicModel!({ ...ctx, provider: "antigravity", modelId: "sonnet-4-6" } as never), undefined);
   assert.equal(scopes[0]!.command, process.execPath);
   assert.deepEqual(scopes[0]!.env, ctx.env);
@@ -115,7 +115,7 @@ test("auth failure and malformed refresh fail without stale rows or readiness re
   assert.deepEqual(await providerIds(f.provider, ctx), ["fixture-original"]);
   for (failure of ["auth", "malformed"] as const) {
     await assert.rejects(providerIds(f.provider, ctx), (error: Error) => !error.message.includes("credential diagnostic"));
-    assert.equal(await f.provider.prepareSyntheticAuth!({ config: ctx.config, env: ctx.env, provider: "antigravity" } as never), undefined);
+    assert.equal(f.harness.readModelCatalogReadiness!({ ...ctx, provider: "antigravity", modelId: "fixture-original" } as never), undefined);
     await assert.rejects(f.provider.prepareDynamicModel!({ ...ctx, provider: "antigravity", modelId: "fixture-original" } as never));
   }
   f.inventoryOwner.stop();
@@ -132,9 +132,9 @@ test("changed config fences old acquisition; changed credentials fence the same 
   const second = providerIds(f.provider, ctx);
   await setImmediate();
   assert.equal(pending[0]!.scope.signal!.aborted, true);
-  pending[1]!.finish([model("account-B")]);
-  assert.deepEqual(await second, ["account-B"]);
-  pending[0]!.finish([model("stale-account-A")]);
+  pending[1]!.finish([model("fresh-model")]);
+  assert.deepEqual(await second, ["fresh-model"]);
+  pending[0]!.finish([model("stale-model")]);
   await firstRejected;
   const third = providerIds(f.provider, ctx);
   const thirdRejected = assert.rejects(third, /retired|active/u);
@@ -181,6 +181,7 @@ test("public optional service stop revokes provider and harness catalog owners w
     pluginConfig: { command: process.execPath },
     runtime: { version: "2026.9.4", agent: { session: {
       getSessionEntry() { throw new Error("no registration session reads"); },
+      listSessionEntries() { throw new Error("no registration session reads"); },
       patchSessionEntry() { throw new Error("no registration session writes"); },
     } } },
     registerService(value: typeof service) { service = value; calls.push("service"); },
@@ -195,4 +196,89 @@ test("public optional service stop revokes provider and harness catalog owners w
   await service.stop!({});
   await assert.rejects(providerIds(provider, context()), /stopped/u);
   await assert.rejects(harness.loadModelCatalog!({ ...context(), agentId: "main" } as never), /stopped/u);
+});
+
+test("readiness is exact scoped live metadata with unknown auth mode and no discovery side effects", async () => {
+  let acquisitions = 0;
+  const f = fixture(async () => { acquisitions++; return initial; });
+  const ctx = { ...context(), agentId: "main" };
+  const query = { ...ctx, provider: "antigravity", modelId: "fixture-original" };
+  assert.equal(f.harness.readModelCatalogReadiness!(query as never), undefined);
+  assert.equal(acquisitions, 0);
+  await f.harness.loadModelCatalog!(ctx as never);
+  assert.deepEqual(f.harness.readModelCatalogReadiness!(query as never), { accountType: "unreported" });
+  for (const change of [{ agentId: "other" }, { provider: "other" }, { modelId: "withdrawn" },
+    { workspaceDir: "/different" }, { env: { ...ctx.env, GEMINI_API_KEY: "SIMULATED-KEY" } }]) {
+    assert.equal(f.harness.readModelCatalogReadiness!({ ...query, ...change } as never), undefined);
+  }
+  assert.equal(acquisitions, 1);
+  ctx.env.AGY_ACCOUNT = "SIMULATED-B";
+  assert.equal(f.harness.readModelCatalogReadiness!(query as never), undefined);
+  await f.harness.loadModelCatalog!(ctx as never);
+  assert.deepEqual(f.harness.readModelCatalogReadiness!(query as never), { accountType: "unreported" });
+  f.inventoryOwner.stop();
+  assert.equal(f.harness.readModelCatalogReadiness!(query as never), undefined);
+});
+
+test("readiness cannot survive a failed or in-flight refresh of its exact prepared environment", async () => {
+  let rejectRefresh!: (reason: Error) => void;
+  let first = true;
+  const f = fixture(async () => first ? (first = false, initial) : new Promise((_resolve, reject) => { rejectRefresh = reject; }));
+  const ctx = { ...context(), agentId: "main" };
+  const query = { ...ctx, provider: "antigravity", modelId: "fixture-original" };
+  await f.harness.loadModelCatalog!(ctx as never);
+  assert.ok(f.harness.readModelCatalogReadiness!(query as never));
+  const refresh = f.harness.loadModelCatalog!(ctx as never);
+  await setImmediate();
+  assert.equal(f.harness.readModelCatalogReadiness!(query as never), undefined);
+  rejectRefresh(new Error("SIMULATED auth changed"));
+  await assert.rejects(refresh);
+  assert.equal(f.harness.readModelCatalogReadiness!(query as never), undefined);
+  f.inventoryOwner.stop();
+});
+
+test("equivalent AGY config projections do not retire the native catalog or cross scope boundaries", async () => {
+  let acquisitions = 0;
+  let finish!: (models: AgyDiscoveredModel[]) => void;
+  const f = fixture(async () => { acquisitions++; return new Promise(resolve => { finish = resolve; }); });
+  const ctx = { ...context(), agentId: "main" };
+  const a = f.harness.loadModelCatalog!(ctx as never);
+  await setImmediate();
+  // Host-owned catalog/auth metadata differs, but the exact AGY invocation
+  // config, environment, agent and workspace are identical.
+  const projected = { ...ctx, config: { ...ctx.config, models: { providers: { other: { baseUrl: "https://fixture.invalid" } } } } };
+  const b = providerIds(f.provider, projected);
+  await setImmediate();
+  assert.equal(acquisitions, 1);
+  finish(initial);
+  await Promise.all([a, b]);
+  const query = { ...ctx, provider: "antigravity", modelId: "fixture-original" };
+  assert.deepEqual(f.harness.readModelCatalogReadiness!(query as never), { accountType: "unreported" });
+  assert.deepEqual(f.harness.readModelCatalogReadiness!({ ...query, config: projected.config } as never), { accountType: "unreported" });
+  f.harness.dispose?.();
+  assert.equal(f.harness.readModelCatalogReadiness!(query as never), undefined);
+  await assert.rejects(providerIds(f.provider, ctx), /stopped/);
+});
+
+test("modern native catalog reports ready, withdrawal and unavailable without claiming auth rejection", async () => {
+  let rows = initial, failed = false;
+  const owner = new AgyHostInventoryOwner({ pluginConfig, discoverModels: async () => {
+    if (failed) throw new Error("SIMULATED private credential details");
+    return rows;
+  } });
+  const harness = createAntigravityHarness({ pluginConfig, inventoryOwner: owner, nativeCatalogControls: true,
+    sessionRuntime: createSourceSessionRuntime([]).runtime });
+  const ctx = { ...context(), agentId: "main" };
+  const query = { ...ctx, provider: "antigravity", modelId: initial[0]!.id };
+  const ready = await harness.loadModelCatalog!(ctx as never);
+  assert.deepEqual(ready, { entries: [{ ...initial[0], provider: "antigravity", nativeRuntime: "antigravity", reasoning: false }],
+    outcomes: [{ provider: "antigravity", status: "ready" }] });
+  assert.ok(harness.readModelCatalogReadiness!(query as never));
+  failed = true;
+  assert.deepEqual(await harness.loadModelCatalog!(ctx as never), { entries: [], outcomes: [{ provider: "antigravity", status: "unavailable" }] });
+  assert.equal(harness.readModelCatalogReadiness!(query as never), undefined);
+  failed = false; rows = [];
+  assert.deepEqual(await harness.loadModelCatalog!(ctx as never), { entries: [], outcomes: [{ provider: "antigravity", status: "ready" }] });
+  harness.dispose?.();
+  await assert.rejects(harness.loadModelCatalog!(ctx as never), /stopped/);
 });

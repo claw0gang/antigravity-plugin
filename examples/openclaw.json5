@@ -1,3 +1,6 @@
+// Antigravity 0.3.4 example. Merge into your existing openclaw.json.
+// Create a dedicated local AGY project and configure its resource roots first.
+// See docs/USER-GUIDE.md for the native AGY project setup.
 {
   plugins: {
     allow: [
@@ -19,7 +22,7 @@
           sandbox: true,
           dangerouslySkipPermissions: false,
 
-          // Normal write-capable workspace work.
+          // Explicit default for normal write-capable workspace work.
           // Use "plan" instead for planning-only tasks.
           mode: "accept-edits",
 
@@ -55,8 +58,8 @@
         // "antigravity/gemini-3.8-flash-medium"
         // "antigravity/gemini-3.8-flash-high"
 
-        // Add antigravity-cli/* only when the compatibility backend is
-        // intentionally required.
+        // No generic CLI backend or static model catalog is registered.
+        // Incompatible old sessions require an explicit reset/new session.
       },
     },
   },

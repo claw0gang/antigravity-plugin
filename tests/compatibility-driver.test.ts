@@ -56,11 +56,11 @@ test("driver inspects built plugin with real ESM SDK resolution and records hone
   const report = JSON.parse(result.stdout);
   assert.equal(report.evidenceKind, "SDK import with simulated registration");
   assert.equal(report.runtimePackageVersion, "2026.9.4");
-  assert.equal(report.buildSdkVersion, "2026.9.4");
+  assert.equal(report.buildSdkVersion, "2026.11.7");
   assert.equal(report.requiredSdk[0].path, join(fixture.host, "entry.js"));
   assert.deepEqual(report.registrations, {
     providers: ["antigravity"], modelCatalogProviders: ["antigravity"],
-    agentHarnesses: ["antigravity"], cliBackends: ["antigravity-cli"],
+    agentHarnesses: ["antigravity"], cliBackends: [],
     nativeAutoSelection: [["antigravity"]], discoveryProvider: "antigravity",
   });
   assert.equal(report.installedHostQualification, "pending");
@@ -79,7 +79,7 @@ test("same built artifact remains eligible across floor and newer stable runtime
   assert.equal(before.status, 0, before.stderr);
   const first = JSON.parse(before.stdout);
   assert.equal(first.runtimePackageVersion, "2026.9.2");
-  assert.equal(first.buildSdkVersion, "2026.9.4");
+  assert.equal(first.buildSdkVersion, "2026.11.7");
   assert.deepEqual(first.optionalHelpers, {
     definePluginEntry: "local-equivalent-fallback",
     "agentHarnessAttemptTerminal.normalize": "local-equivalent-fallback",
@@ -196,7 +196,9 @@ test("driver rejects a candidate that registers CLI as the native provider", (t)
   const fixture = makeFixture(t);
   const indexPath = join(fixture.plugin, "dist/index.js");
   const entry = readFileSync(indexPath, "utf8");
-  writeFileSync(indexPath, entry.replace("api.registerCliBackend(buildAntigravityCliBackend(config));", "api.registerCliBackend({ ...buildAntigravityCliBackend(config), id: 'antigravity' });"));
+  const registration = "api.registerProvider(createAntigravityProvider(providerOptions));";
+  assert.ok(entry.includes(registration), "expected built native registration anchor");
+  writeFileSync(indexPath, entry.replace(registration, `${registration} api.registerCliBackend({ id: 'antigravity' });`));
   const result = check(fixture);
   assert.equal(result.status, 1);
   assert.match(result.stderr, /Unexpected public registration identities/);

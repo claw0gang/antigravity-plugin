@@ -9,7 +9,7 @@ import type { AntigravityHostContracts } from "../../src/harness/host-contracts.
 // SIMULATED source contracts only. These fixtures prove local ownership and
 // callback behavior; they do not qualify an installed OpenClaw host or AGY.
 export const sourceSessionMutation = Object.freeze({
-  evidence: "SIMULATED: synchronous canonical entry updater and commit share one event-loop turn",
+  evidence: "SIMULATED: captured row checked after awaited preparation before one event-loop commit",
 });
 
 export function sourceHostContracts(
@@ -17,22 +17,6 @@ export function sourceHostContracts(
 ): AntigravityHostContracts {
   return {
     sessionMutation: sourceSessionMutation,
-    runtime: {
-      evidence: "SIMULATED: fixture-owned runtime and acknowledgement verifier; no live identity qualification",
-      identity: "SIMULATED: credential-free-source-cli-runtime-v1",
-      assertCurrent() {},
-      verifyAcknowledgement({ event, scope, conversationId }) {
-        assert.equal(event.init.cwd, scope.cwd, "SIMULATED native cwd acknowledgement");
-        if (scope.nativeAgentSelection !== undefined) {
-          assert.equal(event.init.agent, scope.nativeAgentSelection, "SIMULATED native agent acknowledgement");
-        }
-        if (conversationId !== undefined) {
-          assert.equal(event.conversation_id, conversationId, "SIMULATED resumed conversation acknowledgement");
-        }
-        // Frozen protocol does not expose project/account acknowledgement. This
-        // fixture adapter supplies only synthetic route identity, never P03/P05 proof.
-      },
-    },
     ...overrides,
   };
 }
@@ -51,25 +35,32 @@ export function createSourceSessionRuntime(
     sessions.map(({ sessionKey, sessionId }) => [sessionKey, { sessionId, lifecycleRevision: "SIMULATED:lifecycle-v1" }]),
   );
   const runtime = {
-    getSessionEntry({ sessionKey }: { sessionKey: string }) {
+    async getSessionEntryAsync({ sessionKey }: { sessionKey: string }) {
       const entry = rows.get(sessionKey);
       return entry ? structuredClone(entry) : undefined;
     },
-    listSessionEntries() {
+    async withCurrentSessionEntry<T>(params: { sessionKey: string }, consume: (entry: SourceEntry | undefined) => T) {
+      const entry = await this.getSessionEntryAsync(params);
+      assert.deepEqual(entry, rows.get(params.sessionKey), "SIMULATED current-session snapshot is stale");
+      return consume(entry as SourceEntry | undefined);
+    },
+    async listSessionEntriesAsync() {
       return [...rows].map(([sessionKey, entry]) => ({ sessionKey, entry: structuredClone(entry) }));
     },
-    async patchSessionEntry({ sessionKey, update, assertCommitAllowed }: {
+    async prepareSessionEntryPatch({ sessionKey, prepare, authority }: {
       sessionKey: string;
-      update: (entry: SourceEntry) => Partial<SourceEntry> | null;
-      assertCommitAllowed?: () => void;
+      prepare: (entry: SourceEntry, context: { existingEntry: SourceEntry }) => Partial<SourceEntry> | null | Promise<Partial<SourceEntry> | null>;
+      authority?: { kind: "host"; assertCurrent: () => void } | { kind: "source"; source: () => void };
     }) {
       const entry = rows.get(sessionKey);
       if (!entry) return null;
-      const patch = update(structuredClone(entry));
-      assert.ok(!(patch instanceof Promise), "SIMULATED atomic host updater must remain synchronous");
+      const snapshot = JSON.stringify(entry);
+      const patch = await prepare(structuredClone(entry), { existingEntry: structuredClone(entry) });
+      assert.equal(JSON.stringify(rows.get(sessionKey)), snapshot, "SIMULATED host snapshot conflict");
+      if (authority?.kind === "source") authority.source();
+      else authority?.assertCurrent();
       if (!patch) return structuredClone(entry);
       const next = { ...entry, ...structuredClone(patch) };
-      assertCommitAllowed?.();
       rows.set(sessionKey, next);
       const nextBinding = next.pluginExtensions?.antigravity?.binding as Record<string, unknown> | undefined;
       const previousBinding = entry.pluginExtensions?.antigravity?.binding as Record<string, unknown> | undefined;

@@ -1,13 +1,15 @@
 # Antigravity Plugin User Guide
 
-This guide covers the released Antigravity Plugin configuration and user-facing features without requiring knowledge of the implementation.
+This guide covers Antigravity Plugin 0.3.4 configuration and user-facing behavior.
+
+The registered harness runs AGY with its existing native authentication, the prepared OpenClaw environment and the selected CLI configuration. It starts fresh conversations and resumes exact stored conversation IDs. The plugin does not independently identify accounts, inspect credentials or provide another authentication flow.
 
 ## 1. What the plugin does
 
 Antigravity Plugin connects OpenClaw to Google Antigravity CLI (`agy`).
 
-- `antigravity/*`: recommended native OpenClaw `AgentHarnessV2` runtime.
-- `antigravity-cli/*`: explicit generic CLI-backend compatibility runtime.
+- `antigravity`: the single plugin, provider and native `AgentHarnessV2` harness.
+- `antigravity/<exact-native-model-id>`: models discovered from the current AGY scope.
 - OpenClaw owns orchestration, agents, sessions, subagents and completion delivery.
 - AGY owns authentication, projects, conversations, model execution and native tools.
 
@@ -19,22 +21,26 @@ You need:
 
 - OpenClaw plugin API / Gateway `>=2026.9.2`;
 - Node.js `>=22.12.0`;
-- AGY installed and available to the Gateway;
+- AGY installed and available to the Gateway; the existing minimum is 1.1.28;
 - AGY authentication permitted for the account/organization being used.
+
+The build uses OpenClaw SDK **2026.11.7**. Native operation was observed on OpenClaw **2026.11.8** with AGY **1.5.17**. These observations do not change the declared support floors. Use a current compatible AGY release; the `/projects` local project manager requires AGY 1.5.0 or later.
+
+Modern hosts require awaited get/list/prepare and `withSessionEntriesAsync`; missing capabilities block registration. Legacy support is selected before work, never after a modern failure.
 
 Check AGY before configuring OpenClaw:
 
 ```bash
 agy --version
-agy models
+agy models --output-format json
 ```
 
-## 3. Install and enable
+## 3. Installation
 
 Install from ClawHub:
 
 ```bash
-openclaw plugins install clawhub:@claw0gang/antigravity --accept-capabilities
+openclaw plugins install clawhub:@claw0gang/antigravity@0.3.4 --accept-capabilities
 ```
 
 Enable an existing installation:
@@ -51,7 +57,7 @@ openclaw plugins inspect antigravity --runtime --json
 
 ## 4. Recommended configuration
 
-For normal agents that need to read and edit files inside their workspace:
+Install and authenticate AGY and create the dedicated project described in [section 6](#6-agy-project-and-openclaw-workspace) before configuring the plugin. Merge the following into your existing `openclaw.json`:
 
 ```json5
 {
@@ -94,10 +100,10 @@ Configure the plugin once. Selecting another `antigravity/*` model for a later t
 | `printTimeout` | `"30m"` | Value passed to AGY `--print-timeout`. Accepts positive durations such as `30s`, `10m`, `1h`. |
 | `sandbox` | `true` | Passes AGY `--sandbox`. Keep enabled unless the operator intentionally chooses otherwise. |
 | `dangerouslySkipPermissions` | `false` | Passes AGY `--dangerously-skip-permissions`. Keep false for normal operation. |
-| `mode` | AGY default | `"accept-edits"` for normal write-capable work, or `"plan"` for planning-only work. |
-| `agent` | unset | Optional AGY native agent name passed with `--agent`. `antigravity-cli/*` can pass it directly. Native `antigravity/*` requires a current exact qualified native-agent definition carrier; normal plugin registration does not supply that carrier, so leave `agent` unset for normal native use. |
-| `project` | unset | Exact AGY project ID. Required by the native `antigravity/*` runtime. |
-| `newProject` | `false` | Passes AGY `--new-project`. Do not combine with `project`; it is not a substitute for the native runtime's required project binding. |
+| `mode` | `"accept-edits"` | `"accept-edits"` for normal write-capable work, or `"plan"` for planning-only work. |
+| `agent` | unset | Optional AGY native agent name passed with `--agent`. Native `antigravity/*` requires a current exact qualified native-agent definition carrier; normal plugin registration does not supply that carrier, so leave `agent` unset for normal native use. |
+| `project` | unset (required for native execution) | Exact existing AGY project ID. Its resource roots must contain the intended OpenClaw workspaces. |
+| `newProject` | `false` | Keep false for native execution; it cannot replace the required exact project ID. Do not combine with `project`. |
 | `addDirs` | `[]` | Extra directories passed with AGY `--add-dir`. Add only paths the workload needs. |
 | `logFile` | unset | Optional path passed to AGY `--log-file`. The Gateway must be able to write it. |
 
@@ -111,7 +117,7 @@ Use:
 mode: "accept-edits"
 ```
 
-when the agent is expected to perform normal file edits. In headless execution, leaving mode unset can leave an edit waiting for AGY review/approval and therefore denied.
+when the agent is expected to perform normal file edits. This is also the plugin default when `mode` is omitted. The plugin sends it explicitly, so a native default change does not silently select AGY auto or orchestrator mode. AGY permission rules still decide whether an individual action is allowed.
 
 Use:
 
@@ -125,35 +131,15 @@ Do not use `dangerouslySkipPermissions: true` as a fix for ordinary write failur
 
 ## 6. AGY project and OpenClaw workspace
 
-The native runtime requires one exact AGY project:
+Install AGY using the [official instructions](https://antigravity.google/docs/getting-started/) and authenticate with a permitted account in the environment used by the OpenClaw Gateway.
 
-```json5
-project: "YOUR-AGY-PROJECT-ID"
-```
+Create a dedicated local AGY project for OpenClaw. In AGY 1.5.0 or later, launch `agy`, open `/projects`, create a project named OpenClaw, and select its folders. Alternatively, `agy --new-project` creates a new project on startup. Use AGY's project interface to configure the resource roots to contain each intended OpenClaw agent workspace. Add only the folders needed. See [AGY projects](https://antigravity.google/docs/cli/projects/).
 
-AGY project records are normally stored at:
+Obtain the exact local AGY project ID, not its display name or a Google Cloud billing project ID. Use the native project details where the installed CLI exposes the ID. On standard local installations, project metadata has historically been stored at `~/.gemini/config/projects/<project-id>.json`; if necessary, check only the newly created project's own metadata and match its name and resource roots to the filename ID. If the layout differs, use the installed CLI's help rather than guessing. Confirm the selection with `agy --project=YOUR-AGY-PROJECT-ID`. Keep the actual project ID and metadata private.
 
-```text
-~/.gemini/config/projects/<project-id>.json
-```
+For example, a resource root of `/home/user/.openclaw/workspace` contains an agent workspace at `/home/user/.openclaw/workspace/main`. Replace these synthetic paths with your intended workspace paths. Set the exact ID in `plugins.entries.antigravity.config.project` in `openclaw.json`. Neither `newProject: true` nor `addDirs` replaces the required project binding. Keep the configuration persistent.
 
-At least one project resource root must contain the OpenClaw attempt workspace/cwd.
-
-Example:
-
-```text
-AGY project root:
-  /home/user/.openclaw/workspace
-
-OpenClaw agent workspace:
-  /home/user/.openclaw/workspace/main
-```
-
-This is valid because the agent workspace is inside the AGY project root.
-
-If several OpenClaw agents use different workspaces, the configured AGY project must contain each workspace used by the native runtime.
-
-`addDirs` grants AGY additional directory access; it does not replace the required project/workspace binding.
+AGY owns project and conversation access. Resume uses the bound conversation's associated project. The plugin does not inspect private account or project stores.
 
 ## 7. Models
 
@@ -177,9 +163,11 @@ antigravity/gemini-3.8-flash-medium
 antigravity/gemini-3.8-flash-high
 ```
 
-Effort-qualified Gemini IDs are separate models. Selecting `...-low` does not silently become `...-medium` or `...-high`.
+On supported OpenClaw 2026.11.7+ hosts, the thinking selector exposes model-specific levels from read-only AGY metadata. **Native selection** (`off`) keeps the exact selected model; it does not disable reasoning. Supported overrides use AGY's invocation-level `--effort` without changing AGY's saved default. The plugin verifies the effective native model and effort before execution. Fixed or unverified models retain native selection; unsupported overrides are rejected. A resumed conversation must keep its exact bound model; reset before changing variants. See [AGY effort](https://antigravity.google/docs/cli/commands/effort/).
 
-The native provider is discovered live from AGY. The compatibility `antigravity-cli/*` namespace uses its compatibility catalog.
+The provider is discovered live from AGY. These examples do not constitute a static catalog. New, withdrawn and empty inventories are handled through current native discovery; the plugin does not remap retired shorthand aliases to another model.
+
+A successful model listing establishes discovery in that native scope. It does not prove an OAuth, API-key or ADC authentication method, nor does it establish inference entitlement. AGY owns authentication. Its own provider setting, such as `modelProvider: "gemini"`, is distinct from OpenClaw's `antigravity` provider name. The plugin does not configure or rotate native credentials.
 
 ## 8. Use as the main model
 
@@ -204,7 +192,7 @@ You can also register `antigravity/*` without changing the primary model and sel
 
 ## 9. Use with subagents
 
-Antigravity-backed children use OpenClaw's normal subagent lifecycle.
+Antigravity-backed children use OpenClaw's normal subagent lifecycle and the registered native harness.
 
 Example intent:
 
@@ -272,33 +260,19 @@ OpenClaw session -> AGY conversation_id + exact AGY model
 
 A fresh native session establishes the AGY conversation binding. Later turns resume that exact conversation.
 
-A resumed session must keep a compatible runtime identity, including the exact model, AGY project/account scope and OpenClaw session ownership. Start a new session when intentionally changing those identities.
+Resume passes `--conversation` with the exact stored ID, never `--continue`. The returned conversation and model must match the binding. The plugin preserves OpenClaw session ownership and generation. An incompatible model or canonical session binding requires an explicit reset or new session. AGY owns authentication and conversation access.
+
+Stale session state rejects the operation without refreshing or retrying AGY. Host delivery checks remain separate. Reset must cancel and drain the attempt before clearing its binding; unconfirmed cancellation blocks resume. See the [awaited session contract](ARCHITECTURE.md#54-awaited-public-session-integration).
 
 ## 13. Images
 
-The native runtime supports OpenClaw image input for supported models.
+The selected stream-json input is text-only. Image input is accepted only when the host supplies a separately qualified model, media policy and native image route; ordinary live model discovery does not establish those capabilities. Unsupported image requests are rejected before native execution.
 
-Supported input types include PNG, JPEG/JPG, WebP and GIF. The plugin stages image files privately inside the selected OpenClaw workspace for the attempt and removes the transport files afterward.
+The existing staging adapter validates PNG, JPEG/JPG, WebP and GIF and keeps accepted files private to the attempt. It may remove those files only after the qualified native readers have settled. The adapter does not establish that an ordinary live model supports images.
 
-Model capability still determines whether the selected model can use the image.
+## 14. Older configuration and sessions
 
-## 14. Compatibility runtime
-
-Use the native runtime for normal operation:
-
-```text
-antigravity/*
-```
-
-Use:
-
-```text
-antigravity-cli/*
-```
-
-only when the generic OpenClaw CLI-backend path is intentionally required.
-
-The compatibility runtime is not an automatic fallback. The plugin does not silently switch between the two namespaces.
+The former `antigravity-cli/*` backend is no longer supported. Remove obsolete backend/model configuration, refresh the inventory and select an exact `antigravity/<native-id>`. Start a new session or use a supported reset for incompatible old bindings. A prefix change does not migrate a conversation; there is no automatic fallback.
 
 ## 15. Verify the installation
 
@@ -309,7 +283,7 @@ openclaw plugins inspect antigravity --runtime --json
 openclaw models list --provider antigravity --refresh
 ```
 
-Then start a session with one exact `antigravity/*` model.
+The model listing verifies inventory visibility. A native session with an exact `antigravity/*` model checks execution separately.
 
 A minimal subagent check should verify:
 
@@ -319,6 +293,20 @@ A minimal subagent check should verify:
 - if write capability is required, a workspace-local absolute-path file write/read-back works under the intended permission mode.
 
 ## 16. Troubleshooting
+
+### AGY authentication or project access fails
+
+Use AGY's own login and project commands to resolve the native error in the environment used by the Gateway. OpenClaw does not provide an AGY login screen, and the plugin does not inspect or rewrite native credentials. A failed or potentially started native turn is not automatically replayed.
+
+### OpenClaw route or execution requirements are rejected
+
+The native `antigravity/*` runtime uses AGY's own authentication and service endpoint. It cannot apply an authored OpenClaw endpoint override, forward an OpenClaw credential profile, or replace host-owned execution tools with an environment overlay. Select a runtime that can satisfy that route, or configure the intended native AGY route explicitly; the plugin exposes no alternate generic CLI backend.
+
+Current OpenClaw can also require exact native model-policy enforcement for a restricted operator. This plugin does not declare that newer capability merely from its exact requested-model checks. Such restrictions remain enforced by OpenClaw's admission decision.
+
+### A partial answer is reported as incomplete
+
+AGY's `finished_reason` reports early termination independently of its status text or process exit code. `print_timeout` is a timeout, `interrupted` is cancellation, and `error` is failure. The plugin retains available text and native status while withholding a successful completed-assistant result. An unknown reason is a protocol error. Do not treat an exit code of zero or a `SUCCESS` string alone as completed work.
 
 ### Plugin not active
 
@@ -343,7 +331,7 @@ If needed, set `command` to the intended executable path.
 Run:
 
 ```bash
-agy models
+agy models --output-format json
 openclaw models list --provider antigravity --refresh
 ```
 
@@ -363,7 +351,7 @@ Do not enable `dangerouslySkipPermissions` just to bypass the failure.
 
 ### Resume rejected
 
-Start a new session if the model, AGY project/account/runtime scope or OpenClaw ownership intentionally changed.
+For an incompatible model or OpenClaw session owner, explicitly reset or start a new session. If AGY rejects the exact stored conversation, resolve the native error; the plugin does not silently start a replacement conversation.
 
 ## 17. Security and account terms
 

@@ -18,6 +18,7 @@ function fixtureApi(version: unknown = "2026.9.4") {
     api: {
       runtime: { version, agent: { session: {
         getSessionEntry() { throw new Error("Registration must not read sessions"); },
+        listSessionEntries() { throw new Error("Registration must not list sessions"); },
         patchSessionEntry() { throw new Error("Registration must not mutate sessions"); },
       } } },
       registerProvider() { calls.push("provider"); },
@@ -34,10 +35,10 @@ test("minimum stable OpenClaw admission remains forward-compatible and distinct 
     const report = inspectOpenClawCompatibility(api);
     assert.equal(report.status, "eligible");
     assert.equal(report.runtimeVersion, version);
-    assert.equal(report.buildSdkVersion, "2026.9.4");
+    assert.equal(report.buildSdkVersion, "2026.11.7");
     assert.equal(report.supportRange, ">=2026.9.2");
     assert.equal(report.installedQualification, "pending");
-    assert.equal(report.executionQualification.status, "required-before-native-start");
+    assert.equal(report.executionQualification.status, "separate-native-validation");
     assertOpenClawCompatibility(api);
   }
   for (const version of ["2026.9.1", "2026.8.99", "2025.12.99", "2026.9.5-beta.1", "2026.09.4", " 2026.9.4", "2026.9.4\n", "unknown", null]) {
@@ -68,7 +69,7 @@ test("missing required contract rejects before every registration and session ca
 test("eligible registration does not invoke native discovery or session methods", () => {
   const { api, calls } = fixtureApi("2027.1.0");
   plugin.register(api as unknown as OpenClawPluginApi);
-  assert.deepEqual(calls, ["provider", "catalog", "harness", "cli"]);
+  assert.deepEqual(calls, ["provider", "catalog", "harness"]);
 });
 
 test("registration errors propagate without switching to the CLI backend", () => {
@@ -178,6 +179,49 @@ test("prepared environment errors and malformed contracts never fall back to amb
   }
 });
 
+test("owned local environment preserves Git parameters and the host's prepared tool PATH", () => {
+  const { attempt } = fixtureAttempt();
+  const inherited = process.env.GIT_CONFIG_PARAMETERS;
+  process.env.GIT_CONFIG_PARAMETERS = "'color.ui'='never'";
+  const fragment = "'credential.helper'='host-helper'";
+  try {
+    for (const [localProcessEnv, expected] of [
+      [{}, `'color.ui'='never' ${fragment}`],
+      [{ GIT_CONFIG_PARAMETERS: "'core.pager'='cat'" }, `'core.pager'='cat' ${fragment}`],
+      [{ GIT_CONFIG_PARAMETERS: "" }, fragment],
+    ] as const) {
+      (attempt.hostCapabilities as unknown as Record<string, unknown>).preparedEnvironment = () => ({
+        credentialScrubEnv: {}, localIdentityEnv: {}, managedLocalIdentity: false,
+        localProcessEnv, localGitConfigParameters: fragment,
+        localToolEnv: { PATH: "/host/tools:/usr/bin" }, localToolPathPrepend: ["/host/tools"],
+      });
+      const environment = prepareOpenClawEnvironment(attempt);
+      assert.equal(environment.GIT_CONFIG_PARAMETERS, expected);
+      assert.equal(environment.PATH, "/host/tools:/usr/bin");
+      assert.equal(process.env.GIT_CONFIG_PARAMETERS, "'color.ui'='never'");
+    }
+  } finally {
+    if (inherited === undefined) delete process.env.GIT_CONFIG_PARAMETERS;
+    else process.env.GIT_CONFIG_PARAMETERS = inherited;
+  }
+});
+
+test("managed execution custody and malformed optional environment facts cannot become native overlays", () => {
+  const { attempt } = fixtureAttempt();
+  const base = { credentialScrubEnv: {}, localIdentityEnv: {}, managedLocalIdentity: false };
+  for (const extra of [
+    { localToolEnv: { PATH: 1 } }, { localGitConfigParameters: 1 },
+    { localGitConfigParameters: "bad\0value" }, { localToolPathPrepend: "not-an-array" },
+    { localToolPathPrepend: [""] }, { localToolPathPrepend: ["bad\0path"] },
+    { hostExecutionRequired: false },
+  ]) {
+    (attempt.hostCapabilities as unknown as Record<string, unknown>).preparedEnvironment = () => ({ ...base, ...extra });
+    assert.throws(() => prepareOpenClawEnvironment(attempt), /malformed.*preparedEnvironment/u);
+  }
+  (attempt.hostCapabilities as unknown as Record<string, unknown>).preparedEnvironment = () => ({ ...base, hostExecutionRequired: true });
+  assert.throws(() => prepareOpenClawEnvironment(attempt), /host-owned execution tools/u);
+});
+
 test("every production OpenClaw import is isolated inside the host adapter", () => {
   const source = new URL("../src/", import.meta.url);
   function walk(path: string): void {
@@ -189,4 +233,32 @@ test("every production OpenClaw import is isolated inside the host adapter", () 
     }
   }
   walk("./");
+});
+
+
+test("canonical-only registration accepts awaited session methods and current-entry callback without legacy or CLI APIs", () => {
+  const { api, calls } = fixtureApi("2026.11.7");
+  const modern = {
+    ...api,
+    registerCliBackend: undefined,
+    runtime: { version: "2026.11.7", agent: { session: {
+      async getSessionEntryAsync() { throw new Error("registration must not read sessions"); },
+      async listSessionEntriesAsync() { throw new Error("registration must not list sessions"); },
+      async prepareSessionEntryPatch() { throw new Error("registration must not mutate sessions"); },
+      async withSessionEntriesAsync() { throw new Error("registration must not select sessions"); },
+    } } },
+  };
+  assert.equal(inspectOpenClawCompatibility(modern).sessionAdapter, "awaited");
+  plugin.register(modern as unknown as OpenClawPluginApi);
+  assert.deepEqual(calls, ["provider", "catalog", "harness"]);
+});
+
+test("partial awaited session surface fails before registration despite a complete legacy surface", () => {
+  const { api, calls } = fixtureApi("2026.11.7");
+  Object.assign(api.runtime.agent.session, { async getSessionEntryAsync() { throw new Error("must not be called"); } });
+  const report = inspectOpenClawCompatibility(api);
+  assert.equal(report.status, "missing-contracts");
+  assert.deepEqual(report.missingContracts, ["runtime.agent.session.listSessionEntriesAsync", "runtime.agent.session.prepareSessionEntryPatch", "runtime.agent.session.withSessionEntriesAsync"]);
+  assert.throws(() => plugin.register(api as unknown as OpenClawPluginApi), /missing required|Missing required/);
+  assert.deepEqual(calls, []);
 });

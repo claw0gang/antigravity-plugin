@@ -160,6 +160,29 @@ test("explicit unfenced consumer remains undispatched while the final answer com
   } finally { release(); await mock.cleanup(); }
 });
 
+test("revocation after result and settlement prevents final and partial native text", async () => {
+  const mock = await fixture();
+  const host = attempt(mock.root, hostPartialWiring());
+  const sessionBindings = bindings();
+  const check = sessionBindings.assertResultCurrent.bind(sessionBindings);
+  let revoked = false;
+  sessionBindings.assertResultCurrent = async (...args) => {
+    if (revoked) throw new Error("simulated generation replacement");
+    return check(...args);
+  };
+  host.params.hostCapabilities.trajectory!.flush = async () => { revoked = true; };
+  try {
+    const result = await runAntigravityAttempt({ hostContracts: sourceHostContracts(), attempt: host.params,
+      pluginConfig: resolveAntigravityPluginConfig({ command: mock.command }), sessionBindings });
+    assert.equal(revoked, true);
+    assert.equal(result.terminal.kind, "failed");
+    assert.ok(!result.assistantTexts.join("\n").includes("native answer"));
+    assert.deepEqual(result.messagesSnapshot, []);
+    assert.equal(result.currentAttemptCompletedAssistant, undefined);
+    assert.equal(result.replayMetadata?.replaySafe, false);
+  } finally { await mock.cleanup(); }
+});
+
 test("bad telemetry with the ordinary host callback retains partial text and remains replay-unsafe", async () => {
   const mock = await fixture(true);
   const wiring = hostPartialWiring();

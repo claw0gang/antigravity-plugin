@@ -3,11 +3,9 @@ import test from "node:test";
 
 import { resolveAntigravityPluginConfig } from "../src/config.ts";
 import {
-  ANTIGRAVITY_NATIVE_AUTH_MARKER,
   buildAntigravityNativeRuntimeModel,
   createAntigravityModelCatalogProvider,
   createAntigravityProvider,
-  normalizeAntigravityModelId,
 } from "../src/provider.ts";
 
 const liveModels = [
@@ -25,51 +23,18 @@ function createContext(modelId: string) {
   } as never;
 }
 
-test("native compatibility aliases normalize to exact AGY ids while Gemini stays exact", () => {
-  assert.equal(normalizeAntigravityModelId("sonnet-4-6"), "claude-sonnet-4-6");
-  assert.equal(normalizeAntigravityModelId("opus-4-6"), "claude-opus-4-6-thinking");
-  assert.equal(normalizeAntigravityModelId("gpt-oss"), "gpt-oss-120b-medium");
-  assert.equal(
-    normalizeAntigravityModelId("gemini-3.8-flash-high"),
-    "gemini-3.8-flash-high",
-  );
-});
-
-test("provider publishes synthetic native auth only when AGY inventory is available", async () => {
-  const seen: Array<{ command?: string; timeoutMs?: number }> = [];
+test("live catalog discovery never invents native authentication mode or credentials", async () => {
+  let calls = 0;
   const provider = createAntigravityProvider({
     pluginConfig: resolveAntigravityPluginConfig({ command: process.execPath }),
-    discoverModels: async (params) => {
-      seen.push({ command: params?.scope?.command ?? params?.command, timeoutMs: params?.timeoutMs });
-      return liveModels;
-    },
+    discoverModels: async () => { calls++; return liveModels; },
   });
-
-  const auth = await provider.prepareSyntheticAuth?.({ provider: "antigravity" } as never);
-  assert.ok(auth?.expiresAt && auth.expiresAt <= Date.now() + 60_000);
-  assert.ok(auth.expiresAt > Date.now());
-  assert.deepEqual({ ...auth, expiresAt: undefined }, {
-    expiresAt: undefined,
-    apiKey: ANTIGRAVITY_NATIVE_AUTH_MARKER,
-    source: "Google Antigravity CLI native auth",
-    mode: "oauth",
-  });
-  assert.deepEqual(seen, [{ command: process.execPath, timeoutMs: 10000 }]);
-
-  const unrelated = await provider.prepareSyntheticAuth?.({ provider: "other" } as never);
-  assert.equal(unrelated, undefined);
-  assert.deepEqual(seen, [{ command: process.execPath, timeoutMs: 10000 }]);
-
-  const unavailable = createAntigravityProvider({
-    pluginConfig: resolveAntigravityPluginConfig({ command: process.execPath }),
-    discoverModels: async () => {
-      throw new Error("agy unavailable");
-    },
-  });
-  assert.equal(
-    await unavailable.prepareSyntheticAuth?.({ provider: "antigravity" } as never),
-    undefined,
-  );
+  assert.equal(provider.prepareSyntheticAuth, undefined);
+  assert.deepEqual(provider.auth, []);
+  const result = await provider.catalog!.run({} as never);
+  assert.ok(result && "provider" in result);
+  assert.equal(calls, 1);
+  assert.equal(result.provider.apiKey, undefined);
 });
 
 test("provider admits an exact model only when live AGY inventory advertises it", async () => {

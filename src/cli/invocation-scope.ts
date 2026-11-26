@@ -10,11 +10,12 @@ export type InvocationScope = Readonly<{
   signal?: AbortSignal;
   deadlineMonoMs: number;
   assertActive: () => void;
+  /** Optional awaited canonical-owner validation; never substitute a cached row. */
+  assertCurrent?: () => Promise<void>;
   owner: Readonly<Record<string, string | undefined>>;
   projectSelection?: Readonly<{ project?: string; newProject?: boolean }>;
   addDirs: readonly string[];
   nativeAgentSelection?: string;
-  scopeKey?: string;
 }>;
 
 export class InvocationScopeError extends Error {
@@ -32,12 +33,12 @@ export type InvocationScopeOptions = {
   timeoutMs?: number;
   deadlineMonoMs?: number;
   assertActive?: () => void;
+  assertCurrent?: () => Promise<void>;
   purpose?: InvocationScope["purpose"];
   owner?: Record<string, string | undefined>;
   projectSelection?: { project?: string; newProject?: boolean };
   addDirs?: readonly string[];
   nativeAgentSelection?: string;
-  scopeKey?: string;
 };
 
 /** Resolve against this environment once. A missing PATH never inherits the ambient PATH. */
@@ -76,11 +77,13 @@ export function createInvocationScope(options: InvocationScopeOptions): Invocati
   return Object.freeze({
     purpose: options.purpose ?? "attempt",
     command: resolveExecutable(options.command, cwd, env), cwd, env, deadlineMonoMs, assertActive,
+    ...(options.assertCurrent ? { assertCurrent: async () => {
+      assertActive(); await options.assertCurrent!(); assertActive();
+    } } : {}),
     owner: Object.freeze({ ...(options.owner ?? {}) }),
     addDirs: Object.freeze([...(options.addDirs ?? [])]),
     ...(options.signal ? { signal: options.signal } : {}),
     ...(options.projectSelection ? { projectSelection: Object.freeze({ ...options.projectSelection }) } : {}),
     ...(options.nativeAgentSelection !== undefined ? { nativeAgentSelection: options.nativeAgentSelection } : {}),
-    ...(options.scopeKey !== undefined ? { scopeKey: options.scopeKey } : {}),
   });
 }

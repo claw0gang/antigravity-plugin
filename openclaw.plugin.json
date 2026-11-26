@@ -6,18 +6,6 @@
     "antigravity"
   ],
   "providerCatalogEntry": "./dist/provider-discovery.js",
-  "syntheticAuthRefs": [
-    "antigravity"
-  ],
-  "cliBackends": [
-    "antigravity-cli"
-  ],
-  "setup": {
-    "cliBackends": [
-      "antigravity-cli"
-    ],
-    "requiresRuntime": false
-  },
   "activation": {
     "onStartup": true,
     "onProviders": [
@@ -48,7 +36,7 @@
       },
       "dangerouslySkipPermissions": {
         "type": "boolean",
-        "description": "Pass --dangerously-skip-permissions to the native harness and compatibility CLI, requesting AGY always-proceed permission mode. Disabled by default; use only for intentionally unrestricted execution."
+        "description": "Pass --dangerously-skip-permissions to the native harness, requesting AGY always-proceed permission mode. Disabled by default; use only for intentionally unrestricted execution."
       },
       "mode": {
         "type": "string",
@@ -56,12 +44,12 @@
           "accept-edits",
           "plan"
         ],
-        "description": "AGY execution mode: accept-edits for normal file-editing work or plan for planning-only work. If omitted, AGY uses its own default review behavior."
+        "description": "AGY execution mode: accept-edits for normal file-editing work or plan for planning-only work. Defaults to accept-edits; the plugin never selects AGY auto or orchestrator mode implicitly."
       },
       "agent": {
         "type": "string",
         "minLength": 1,
-        "description": "Optional AGY native agent name passed with --agent. Compatibility CLI can use it directly; native antigravity/* requires a current exact qualified native-agent definition carrier and rejects the setting when that carrier is unavailable."
+        "description": "Optional AGY native agent name passed with --agent. Native antigravity/* requires a current exact qualified native-agent definition carrier and rejects the setting when that carrier is unavailable."
       },
       "project": {
         "type": "string",
@@ -97,95 +85,8 @@
     ]
   },
   "modelCatalog": {
-    "providers": {
-      "antigravity-cli": {
-        "models": [
-          {
-            "id": "sonnet-4-6",
-            "reasoning": false
-          },
-          {
-            "id": "opus-4-6",
-            "reasoning": false
-          },
-          {
-            "id": "gpt-oss",
-            "reasoning": false
-          },
-          {
-            "id": "gemini-3.8-flash-high",
-            "reasoning": false
-          },
-          {
-            "id": "gemini-3.8-flash-medium",
-            "reasoning": false
-          },
-          {
-            "id": "gemini-3.8-flash-low",
-            "reasoning": false
-          },
-          {
-            "id": "gemini-3.7-flash-high",
-            "reasoning": false
-          },
-          {
-            "id": "gemini-3.7-flash-medium",
-            "reasoning": false
-          },
-          {
-            "id": "gemini-3.7-flash-low",
-            "reasoning": false
-          },
-          {
-            "id": "gemini-3.6-flash-high",
-            "reasoning": false
-          },
-          {
-            "id": "gemini-3.6-flash-medium",
-            "reasoning": false
-          },
-          {
-            "id": "gemini-3.6-flash-low",
-            "reasoning": false
-          },
-          {
-            "id": "gemini-3.5-flash-high",
-            "reasoning": false
-          },
-          {
-            "id": "gemini-3.5-flash-medium",
-            "reasoning": false
-          },
-          {
-            "id": "gemini-3.5-flash-low",
-            "reasoning": false
-          },
-          {
-            "id": "gemini-3.1-pro-high",
-            "reasoning": false
-          },
-          {
-            "id": "gemini-3.1-pro-low",
-            "reasoning": false
-          },
-          {
-            "id": "claude-sonnet-4-6",
-            "reasoning": false
-          },
-          {
-            "id": "claude-opus-4-6-thinking",
-            "reasoning": false
-          },
-          {
-            "id": "gpt-oss-120b-medium",
-            "reasoning": false
-          }
-        ]
-      }
-    },
     "discovery": {
-      "antigravity": "refreshable",
-      "antigravity-cli": "static"
+      "antigravity": "refreshable"
     },
     "runtimeAugment": true
   },

@@ -47,7 +47,7 @@ function sameRecord(left: Readonly<Record<string, string | undefined>>, right: R
 
 /** Compare private effective values directly. Never serialize or hash prepared credentials into a cache key. */
 function sameAuthority(left: InvocationScope, right: InvocationScope): boolean {
-  return left.command === right.command && left.cwd === right.cwd && left.scopeKey === right.scopeKey
+  return left.command === right.command && left.cwd === right.cwd
     && left.nativeAgentSelection === right.nativeAgentSelection
     && left.projectSelection?.project === right.projectSelection?.project
     && left.projectSelection?.newProject === right.projectSelection?.newProject
@@ -134,6 +134,20 @@ export class AgyInventoryService {
     return result;
   }
 
+  /** Pure observation. A host projecting an already published catalog may
+   * retain the last still-fresh observation during an equivalent pending read.
+   * This never renews it or admits execution; a failure/retirement clears it.
+   * Strict callers (including asynchronous enrichment fences) remain strict. */
+  peek(scope: InvocationScope, published = false): readonly AgyDiscoveredModel[] | undefined {
+    if (this.#stopped) return undefined;
+    const entry = [...this.#entries].find((candidate) => sameAuthority(candidate.authority, scope));
+    const snapshot = entry?.snapshot;
+    if (!snapshot || (entry?.inflight && (!published || entry.inflight.retired)) ||
+        snapshot.ownerGeneration !== this.#ownerGeneration ||
+        this.#now() - snapshot.acquiredAtMono >= this.#freshnessMs) return undefined;
+    return snapshot.models;
+  }
+
   /** Retire applicable acquisitions immediately. Late completion cannot renew any snapshot. */
   invalidate(scope?: InvocationScope): void {
     if (!scope) this.#ownerGeneration++;
@@ -194,8 +208,23 @@ export class AgyInventoryService {
     };
     operation.timer = setTimeout(() => this.#retire(entry, operation,
       this.#error("timeout", "AGY inventory acquisition deadline expired")), Math.max(0, operation.deadline - performance.now()));
+    const assertCurrent = async (): Promise<void> => {
+      assertActive();
+      // Scope coordinates may be cached; ownership callbacks belong to current
+      // callers. Never inherit a retired attempt's async lease from entry.authority.
+      await Promise.all([...operation.waiters].map(async (waiter) => {
+        try {
+          await waiter.scope.assertCurrent?.();
+          this.#assertCaller(waiter.scope);
+        } catch (cause) {
+          this.#removeWaiter(entry, operation, waiter,
+            this.#error(failureKind(cause), "AGY inventory caller authority was revoked"));
+        }
+      }));
+      assertActive();
+    };
     const scope: InvocationScope = Object.freeze({ ...entry.authority, purpose: "inventory",
-      signal: operation.controller.signal, deadlineMonoMs: operation.deadline, assertActive });
+      signal: operation.controller.signal, deadlineMonoMs: operation.deadline, assertActive, assertCurrent });
     const ancestors = new Set(acquisitionContext.getStore() ?? []);
     ancestors.add(this);
     // Starting in a microtask installs all concurrent waiters before discovery

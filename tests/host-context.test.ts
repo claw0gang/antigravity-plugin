@@ -14,10 +14,10 @@ import { AGY_SOURCE_CLI_PRELUDE } from "./fixtures/agy-source-cli.ts";
 import { createSourceSessionRuntime, sourceHostContracts, sourceSessionMutation } from "./fixtures/host-contracts.ts";
 
 // Actual credential-free child processes exercise the local integration. Host
-// contracts, native protocol and identity acknowledgement are SIMULATED; these
+// contracts and native protocol are SIMULATED; these
 // fixtures establish neither installed OpenClaw compatibility nor AGY qualification.
 async function fixture(options: { response?: string; hold?: boolean } = {}) {
-  const root = await mkdtemp(join(tmpdir(), "agy-p02t003-host-context-"));
+  const root = await mkdtemp(join(tmpdir(), "agy-host-context-fixture-host-context-"));
   const command = join(root, "fake-agy.cjs");
   const callsPath = join(root, "calls.jsonl");
   const inputsPath = join(root, "inputs.jsonl");
@@ -38,7 +38,7 @@ emit({event:"result",result:{conversation_id:id,status:"SUCCESS",response:${JSON
   duration_seconds:0.01,num_turns:1,usage:{input_tokens:4,output_tokens:3,thinking_tokens:0,cache_read_tokens:0,total_tokens:7}}});
 if (${options.hold === true}) setInterval(() => {}, 1000);
 `, { mode: 0o700 });
-  const session = { sessionKey: "agent:main:p02t003", sessionId: "host-p02t003" };
+  const session = { sessionKey: "agent:main:host-context-fixture", sessionId: "host-host-context-fixture" };
   const { runtime, rows } = createSourceSessionRuntime([session]);
   const bindings = new AntigravitySessionBindings(runtime, { atomicMutation: sourceSessionMutation });
   const identity = {
@@ -109,9 +109,9 @@ test("cumulative ACTIVE/ACTIVE/DONE previews are ordered, and identical terminal
     ]);
     assert.deepEqual(result.assistantTexts, ["one two three"]);
     assert.equal(result.antigravityEvidence.deliveredOutput, true);
-    assert.equal(result.antigravityEvidence.runtimeScope?.acknowledged, true);
+    assert.equal(result.antigravityEvidence.nativeIdentityVerified, true);
     assert.equal(typeof result.antigravityDeliveryGuard, "function");
-    assert.doesNotThrow(result.antigravityDeliveryGuard!);
+    await assert.doesNotReject(result.antigravityDeliveryGuard!);
     assert.equal((await f.inputs()).length, 1);
   } finally { await f.cleanup(); }
 });
@@ -198,28 +198,12 @@ test("a deferred preview cannot mutate or claim delivery after the callback dead
   } finally { gate.resolve(); await f.cleanup(); }
 });
 
-test("effective runtime acknowledgement rejection is unsafe and never creates a conversation binding", async () => {
-  const f = await fixture();
-  const host = sourceHostContracts();
-  host.runtime.verifyAcknowledgement = () => { throw new Error("SIMULATED effective account/project identity mismatch"); };
-  try {
-    const result = await run(f, host);
-    assert.notEqual(result.terminal.kind, "ok");
-    assert.equal(result.antigravityEvidence.invocation, "started");
-    assert.equal(result.antigravityEvidence.nativeIdentityVerified, true, "parser model match remains a separate fact");
-    assert.equal(result.antigravityEvidence.runtimeScope?.acknowledged, false);
-    assert.equal(result.replayMetadata?.replaySafe, false);
-    assert.equal(f.bindings.resolve(f.identity), undefined);
-    assert.equal((await f.inputs()).length, 1);
-  } finally { await f.cleanup(); }
-});
-
 test("missing host contracts and unsupported required context reject before any subprocess", async () => {
   const f = await fixture();
   try {
     const missing = await runAntigravityAttempt({ attempt: f.attempt, pluginConfig: f.config, sessionBindings: f.bindings });
     assert.equal(missing.antigravityOutcome.kind, "blocked");
-    assert.match(missing.assistantTexts.join("\n"), /qualified host session\/runtime adapter/);
+    assert.match(missing.assistantTexts.join("\n"), /host canonical session adapter/);
     for (const overrides of [
       { extraSystemPrompt: "PRIVATE SYSTEM REQUIREMENT" },
       { pluginHarnessToolPolicyRestricted: true },
@@ -240,9 +224,9 @@ test("missing host contracts and unsupported required context reject before any 
 test("f01: unsupported provenance and inbound context reject before subprocess or session metadata mutation", async () => {
   const f = await fixture();
   const privateValue = "PRIVATE PROVENANCE OR INBOUND CONTENT";
-  const originalPatch = f.runtime.patchSessionEntry.bind(f.runtime);
+  const originalPatch = f.runtime.prepareSessionEntryPatch.bind(f.runtime);
   let patches = 0;
-  f.runtime.patchSessionEntry = async (params) => {
+  f.runtime.prepareSessionEntryPatch = async (params) => {
     patches += 1;
     return originalPatch(params);
   };
@@ -268,7 +252,7 @@ test("f01: unsupported provenance and inbound context reject before subprocess o
     }
     assert.equal(patches, 0);
     assert.deepEqual([...f.rows], before);
-    assert.equal(f.bindings.resolve(f.identity), undefined);
+    assert.equal((await f.bindings.resolve(f.identity)), undefined);
     assert.deepEqual(await f.calls(), []);
     assert.deepEqual(await f.inputs(), []);
     assert.doesNotMatch(JSON.stringify(f.events), /PRIVATE PROVENANCE OR INBOUND CONTENT/);
@@ -292,7 +276,7 @@ test("f01: external-user provenance and empty inbound context execute the exact 
     const inputs = await f.inputs();
     assert.equal(inputs.length, 1);
     assert.deepEqual(inputs[0]?.frame, { event: "user", message: { content: f.attempt.prompt } });
-    assert.ok(f.bindings.resolve(f.identity));
+    assert.ok((await f.bindings.resolve(f.identity)));
   } finally { await f.cleanup(); }
 });
 
@@ -324,8 +308,8 @@ test("restarting the binding owner resumes the exact persisted conversation with
     const first = await run(f);
     assert.equal(first.terminal.kind, "ok");
     assert.equal(typeof first.antigravityDeliveryGuard, "function");
-    assert.doesNotThrow(first.antigravityDeliveryGuard!);
-    const binding = f.bindings.resolve(f.identity);
+    await assert.doesNotReject(first.antigravityDeliveryGuard!);
+    const binding = (await f.bindings.resolve(f.identity));
     assert.ok(binding);
     const restarted = new AntigravitySessionBindings(f.runtime, { atomicMutation: sourceSessionMutation });
     const result = await runAntigravityAttempt({
@@ -336,35 +320,32 @@ test("restarting the binding owner resumes the exact persisted conversation with
     assert.equal(inputs.length, 2);
     assert.equal(inputs[0]!.args.includes("--conversation"), false);
     assert.equal(inputs[1]!.args[inputs[1]!.args.indexOf("--conversation") + 1], binding.conversationId);
-    assert.equal(restarted.resolve(f.identity)?.epoch, binding.epoch);
-    assert.equal(restarted.resolve(f.identity)?.scopeKey, binding.scopeKey);
-    assert.throws(first.antigravityDeliveryGuard!, /stale or not settled/);
-    assert.doesNotThrow(result.antigravityDeliveryGuard!);
+    assert.equal((await restarted.resolve(f.identity))?.epoch, binding.epoch);
+    assert.equal((await restarted.resolve(f.identity))?.scopeKey, binding.scopeKey);
+    await assert.rejects(first.antigravityDeliveryGuard!, /stale or not settled/);
+    await assert.doesNotReject(result.antigravityDeliveryGuard!);
     await restarted.clear({ ...f.identity, cancelAndDrain: async () => {} });
-    assert.throws(result.antigravityDeliveryGuard!, /stale or not settled/);
+    await assert.rejects(result.antigravityDeliveryGuard!, /stale or not settled/);
   } finally { await f.cleanup(); }
 });
 
-test("changed project or runtime account identity cannot silently resume an existing conversation", async () => {
+test("resume retains its native conversation when fresh project configuration changes", async () => {
   const f = await fixture();
   try {
     assert.equal((await run(f)).terminal.kind, "ok");
-    const before = f.bindings.resolve(f.identity);
-    const callsBefore = await f.calls();
-    const changedProject = await runAntigravityAttempt({
+    const binding = await f.bindings.resolve(f.identity);
+    const resumed = await runAntigravityAttempt({
       attempt: f.attempt, pluginConfig: { ...f.config, project: "other-project" },
       sessionBindings: f.bindings, hostContracts: sourceHostContracts(),
     });
-    const changedRuntime = sourceHostContracts();
-    changedRuntime.runtime.identity = "SIMULATED: other account/runtime";
-    const changedAccount = await run(f, changedRuntime);
-    for (const result of [changedProject, changedAccount]) {
-      assert.equal(result.antigravityOutcome.kind, "blocked");
-      assert.match(result.assistantTexts.join("\n"), /scope changed.*explicit host reset/);
-      assert.equal(result.antigravityEvidence.invocation, "not_started");
-    }
-    assert.deepEqual(await f.calls(), callsBefore);
-    assert.deepEqual(f.bindings.resolve(f.identity), before);
+    assert.equal(resumed.terminal.kind, "ok");
+    const inputs = await f.inputs();
+    assert.equal(inputs.length, 2);
+    const args = inputs[1]!.args;
+    assert.equal(args[args.indexOf("--conversation") + 1], binding!.conversationId);
+    assert.equal(args.includes("--project"), false, "AGY retains the conversation's associated project");
+    assert.equal(args.includes("--new-project"), false);
+    assert.deepEqual(await f.bindings.resolve(f.identity), binding);
   } finally { await f.cleanup(); }
 });
 
@@ -372,7 +353,7 @@ test("reset between binding resolution and attempt claim never resurrects the pr
   const f = await fixture();
   try {
     assert.equal((await run(f)).terminal.kind, "ok");
-    const old = f.bindings.resolve(f.identity);
+    const old = (await f.bindings.resolve(f.identity));
     assert.ok(old);
     const callsBefore = await f.calls();
     const originalBegin = f.bindings.beginAttempt.bind(f.bindings);
@@ -388,7 +369,7 @@ test("reset between binding resolution and attempt claim never resurrects the pr
     assert.equal(result.antigravityOutcome.kind, "blocked");
     assert.match(result.assistantTexts.join("\n"), /binding changed during preparation/);
     assert.deepEqual(await f.calls(), callsBefore);
-    assert.equal(f.bindings.resolve(f.identity), undefined);
+    assert.equal((await f.bindings.resolve(f.identity)), undefined);
     const row = f.rows.get(f.identity.openclawSessionKey)!;
     assert.notEqual(row.pluginExtensions?.antigravity?.epoch, old.epoch);
   } finally { await f.cleanup(); }
@@ -398,10 +379,10 @@ test("bounded initial session claim retires a delayed commit before any subproce
   const f = await fixture();
   const gate = deferred();
   const finished = deferred();
-  const originalPatch = f.runtime.patchSessionEntry.bind(f.runtime);
+  const originalPatch = f.runtime.prepareSessionEntryPatch.bind(f.runtime);
   let delayed = false;
   let lateError: unknown;
-  f.runtime.patchSessionEntry = async (params) => {
+  f.runtime.prepareSessionEntryPatch = async (params) => {
     if (delayed) return originalPatch(params);
     delayed = true;
     await gate.promise;
@@ -422,4 +403,42 @@ test("bounded initial session claim retires a delayed commit before any subproce
     assert.equal(f.rows.get(f.identity.openclawSessionKey)?.pluginExtensions, undefined);
     assert.deepEqual(await f.calls(), []);
   } finally { gate.resolve(); await f.cleanup(); }
+});
+
+test("cancellation during the initial awaited session read starts no native operation or mutation", async () => {
+  const f = await fixture(); const controller = new AbortController();
+  const gate = deferred(); const started = deferred();
+  const read = f.runtime.getSessionEntryAsync.bind(f.runtime);
+  f.runtime.getSessionEntryAsync = async (params) => { const entry = await read(params); started.resolve(); await gate.promise; return entry; };
+  try {
+    const pending = run(f, sourceHostContracts(), { abortSignal: controller.signal });
+    await started.promise; controller.abort();
+    const result = await pending;
+    assert.equal(result.terminal.kind, "aborted");
+    assert.equal(result.antigravityEvidence.invocation, "not_started");
+    assert.deepEqual(await f.calls(), []);
+    assert.equal(f.rows.get(f.identity.openclawSessionKey)?.pluginExtensions, undefined);
+    gate.resolve(); await new Promise<void>((resolve) => setImmediate(resolve));
+    assert.deepEqual(await f.calls(), []);
+  } finally { gate.resolve(); await f.cleanup(); }
+});
+
+test("a delayed preview awaits canonical generation validation before exposing output", async () => {
+  const f = await fixture({ hold: true });
+  const commits: string[] = [];
+  try {
+    const result = await run(f, sourceHostContracts({ preview: {
+      evidence: "SIMULATED: awaited row check plus synchronous final owner fence",
+      async publish(preview) {
+        f.rows.get(f.identity.openclawSessionKey)!.lifecycleRevision = "SIMULATED:replacement";
+        await preview.assertCurrent();
+        preview.assertCommitAllowed();
+        commits.push(preview.text); preview.markDelivered();
+      },
+    } }));
+    assert.notEqual(result.terminal.kind, "ok");
+    assert.equal(result.antigravityEvidence.deliveredOutput, false);
+    assert.deepEqual(commits, []);
+    assert.equal(result.replayMetadata?.replaySafe, false);
+  } finally { await f.cleanup(); }
 });

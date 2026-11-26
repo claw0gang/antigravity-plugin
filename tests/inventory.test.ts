@@ -7,7 +7,7 @@ import { AgyModelDiscoveryError, discoverAgyModels, type AgyDiscoveredModel } fr
 
 function scope(options: Partial<InvocationScopeOptions> = {}): InvocationScope {
   return createInvocationScope({ command: process.execPath, cwd: process.cwd(), env: {}, timeoutMs: 5000,
-    owner: { hostGeneration: "fixture-owner", agentId: "agent-a" }, scopeKey: "non-secret-fixture-scope", ...options });
+    owner: { hostGeneration: "fixture-owner", agentId: "agent-a" }, ...options });
 }
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -85,13 +85,12 @@ test("every effective authority dimension isolates acquisition; environment inse
     Object.freeze({ ...base, projectSelection: Object.freeze({ newProject: true }) }),
     Object.freeze({ ...base, addDirs: Object.freeze(["/other-directory"]) }),
     Object.freeze({ ...base, nativeAgentSelection: "different-native-agent" }),
-    Object.freeze({ ...base, scopeKey: "different-auth-generation" }),
   ];
   for (const changed of mutations) {
     const previous = calls;
     assert.deepEqual(await inventory.get({ scope: changed }), [model(String(previous + 1))]);
   }
-  assert.equal(calls, 12);
+  assert.equal(calls, 11);
   assert.equal(JSON.stringify(inventory).includes("sensitive"), false);
   inventory.stop();
 });
@@ -111,6 +110,81 @@ test("equivalent overlapping acquisitions coalesce while separate authorities ex
   assert.equal(await same, await first);
   assert.deepEqual(await separate, [model("other")]);
   inventory.stop();
+});
+
+test("fresh acquisition checks the current async owner after the previous owner retires", async (t) => {
+  let previousCurrent = true;
+  let previousChecks = 0;
+  let currentChecks = 0;
+  let calls = 0;
+  const inventory = new AgyInventoryService({ discoverModels: async (params) => {
+    calls++;
+    await params!.scope!.assertCurrent!();
+    return [model(`acquisition-${calls}`)];
+  } });
+  t.after(() => inventory.stop());
+  const previous = scope({ assertCurrent: async () => {
+    previousChecks++;
+    if (!previousCurrent) throw new InvocationScopeError("aborted", "previous async owner retired");
+  } });
+  assert.deepEqual(await inventory.get({ scope: previous, fresh: true }), [model("acquisition-1")]);
+  assert.ok(previousChecks > 0);
+  const checksBeforeRetirement = previousChecks;
+  previousCurrent = false;
+
+  // Identical effective coordinates reuse the inventory entry, but a new
+  // invocation's async authority must replace the retired caller's capability.
+  const current = scope({ assertCurrent: async () => { currentChecks++; } });
+  assert.deepEqual(await inventory.get({ scope: current, fresh: true }), [model("acquisition-2")]);
+  assert.equal(calls, 2);
+  assert.ok(currentChecks > 0);
+  assert.equal(previousChecks, checksBeforeRetirement);
+});
+
+test("async-invalid single-flight caller retires without rejecting a current caller", async (t) => {
+  const entered = deferred<void>();
+  const checkOwners = deferred<void>();
+  let retiringCurrent = true;
+  let retiringChecks = 0;
+  let currentChecks = 0;
+  let calls = 0;
+  let acquisition: InvocationScope | undefined;
+  const inventory = new AgyInventoryService({ discoverModels: async (params) => {
+    calls++;
+    acquisition = params!.scope;
+    entered.resolve();
+    await checkOwners.promise;
+    await acquisition!.assertCurrent!();
+    assert.equal(acquisition!.signal!.aborted, false);
+    return [model("current-caller")];
+  } });
+  t.after(() => inventory.stop());
+  const retiring = inventory.get({ scope: scope({ assertCurrent: async () => {
+    retiringChecks++;
+    await Promise.resolve();
+    if (!retiringCurrent) throw new InvocationScopeError("aborted", "private retired async owner");
+  } }), fresh: true });
+  const rejection = assert.rejects(retiring, (error: unknown) => {
+    assert.ok(error instanceof AgyInventoryError);
+    assert.equal(error.kind, "aborted");
+    assert.equal(error.message.includes("private"), false);
+    return true;
+  });
+  const current = inventory.get({ scope: scope({ assertCurrent: async () => {
+    currentChecks++;
+    await Promise.resolve();
+  } }), fresh: true });
+  const outcomes = Promise.all([rejection, current]);
+  await entered.promise;
+  retiringCurrent = false;
+  checkOwners.resolve();
+
+  const [, rows] = await outcomes;
+  assert.deepEqual(rows, [model("current-caller")]);
+  assert.equal(calls, 1);
+  assert.ok(retiringChecks > 0);
+  assert.ok(currentChecks > 0);
+  assert.equal(acquisition!.signal!.aborted, false);
 });
 
 test("one canceled coalesced caller cannot cancel another current authority; all canceled abort native work", async () => {
@@ -212,19 +286,19 @@ test("scope-specific invalidation preserves unrelated acquisitions and cache", a
 test("bounded capacity evicts settled LRU entries and never overlaps unsettled retiring acquisitions", async () => {
   let calls = 0;
   const inventory = new AgyInventoryService({ maxScopes: 2, discoverModels: async () => [model(String(++calls))] });
-  await inventory.get({ scope: scope({ scopeKey: "one" }) });
-  await inventory.get({ scope: scope({ scopeKey: "two" }) });
-  await inventory.get({ scope: scope({ scopeKey: "three" }) });
-  assert.deepEqual(await inventory.get({ scope: scope({ scopeKey: "one" }) }), [model("4")]);
+  await inventory.get({ scope: scope({ nativeAgentSelection: "one" }) });
+  await inventory.get({ scope: scope({ nativeAgentSelection: "two" }) });
+  await inventory.get({ scope: scope({ nativeAgentSelection: "three" }) });
+  assert.deepEqual(await inventory.get({ scope: scope({ nativeAgentSelection: "one" }) }), [model("4")]);
   inventory.stop();
   const late = deferred<AgyDiscoveredModel[]>();
   const blocked = new AgyInventoryService({ maxScopes: 1, discoverModels: async () => late.promise });
-  const pending = blocked.get({ scope: scope({ scopeKey: "one" }), timeoutMs: 20 });
+  const pending = blocked.get({ scope: scope({ nativeAgentSelection: "one" }), timeoutMs: 20 });
   const rejection = assert.rejects(pending, /deadline expired/);
   await turn();
-  await assert.rejects(blocked.get({ scope: scope({ scopeKey: "two" }) }), /capacity/);
+  await assert.rejects(blocked.get({ scope: scope({ nativeAgentSelection: "two" }) }), /capacity/);
   await rejection;
-  await assert.rejects(blocked.get({ scope: scope({ scopeKey: "two" }) }), /capacity/);
+  await assert.rejects(blocked.get({ scope: scope({ nativeAgentSelection: "two" }) }), /capacity/);
   late.resolve([]);
   await turn();
   blocked.stop();

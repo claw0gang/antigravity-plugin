@@ -76,6 +76,80 @@ test("successful AGY result restores the completed assistant without inventing n
   assert.equal(result.antigravityEvidence.effects, "unknown");
 });
 
+for (const [reason, terminalKind, outputKind] of [
+  ["print_timeout", "timeout", "timeout"],
+  ["interrupted", "aborted", "canceled"],
+  ["error", "failed", "partial"],
+] as const) {
+  test(`finished_reason ${reason} cannot publish a completed assistant from raw native status`, () => {
+    for (const status of ["SUCCESS", "WAITING", "RUNNING"] as const) {
+      for (const text of ["native partial 🦋\n", ""]) {
+        const native = snapshot({ assistantText: text });
+        native.result = { ...native.result, status, response: text, finished_reason: reason,
+          ...(reason === "error" ? { error: "native stop diagnostic" } : {}) };
+        for (const result of [
+          buildAntigravityAttemptResult({ attempt: attempt(), snapshot: native }),
+          buildAntigravityFailureResult({ attempt: attempt(), partialSnapshot: native,
+            error: new Error("process reported a non-normal finish") }),
+        ]) {
+          assert.equal(result.terminal.kind, terminalKind);
+          assert.equal(result.antigravityOutcome.kind, reason === "error" && !text ? "failed" : outputKind);
+          assert.equal(result.antigravityOutcome.availableOutput, Boolean(text));
+          assert.equal(result.antigravityOutcome.nativeStatus, status);
+          assert.equal(result.antigravityOutcome.nativeTimeout, reason === "print_timeout");
+          assert.deepEqual(result.assistantTexts, text
+            ? [text, result.antigravityOutcome.explanation] : [result.antigravityOutcome.explanation]);
+          assert.match(result.antigravityOutcome.explanation!, /ANTIGRAVITY:/);
+          assert.deepEqual(result.messagesSnapshot, []);
+          assert.equal(result.lastAssistant, undefined);
+          assert.equal(result.currentAttemptCompletedAssistant, undefined);
+          assert.deepEqual(result.antigravityEvidence.accounting.raw, native.result.usage);
+          assert.equal(result.replayMetadata?.replaySafe, false);
+          assert.deepEqual(result.attemptUsage, { contextUsage: { state: "unavailable" } });
+        }
+      }
+    }
+  });
+}
+
+test("unrecognized terminal reason cannot become success through the result builder", () => {
+  const native = snapshot();
+  Object.assign(native.result, { finished_reason: "future_stop" });
+  const result = buildAntigravityAttemptResult({ attempt: attempt(), snapshot: native });
+  assert.equal(result.terminal.kind, "failed");
+  assert.equal(result.antigravityOutcome.kind, "partial");
+  assert.deepEqual(result.assistantTexts, ["done", result.antigravityOutcome.explanation]);
+  assert.match(result.antigravityOutcome.explanation!, /finished_reason future_stop/);
+  assert.equal(result.currentAttemptCompletedAssistant, undefined);
+});
+
+test("structured native failures withhold diagnostic error and response while retaining streamed partial output", () => {
+  for (const status of ["ERROR", "INVALID"] as const) {
+    const native = snapshot({ assistantText: "available partial answer" });
+    native.result = { ...native.result, status, error: "synthetic-secret-in-error", response: "synthetic-secret-in-response" };
+    const result = buildAntigravityAttemptResult({ attempt: attempt(), snapshot: native });
+    assert.equal(result.terminal.kind, "failed");
+    assert.equal(result.antigravityOutcome.kind, "partial");
+    assert.equal(result.antigravityOutcome.nativeStatus, status);
+    assert.equal(result.assistantTexts[0], "available partial answer");
+    assert.match(result.assistantTexts[1]!, new RegExp(`AGY returned ${status}`));
+    assert.doesNotMatch(JSON.stringify(result.assistantTexts), /synthetic-secret/);
+    assert.doesNotMatch(String(result.terminal.kind === "failed" && result.terminal.error), /synthetic-secret/);
+    assert.equal(result.replayMetadata?.replaySafe, false);
+  }
+});
+
+test("native finished_reason error does not project its diagnostic string", () => {
+  const native = snapshot({ assistantText: "available partial answer" });
+  native.result = { ...native.result, finished_reason: "error", error: "synthetic-secret-in-error", response: "available partial answer" };
+  const result = buildAntigravityAttemptResult({ attempt: attempt(), snapshot: native });
+  assert.equal(result.terminal.kind, "failed");
+  assert.equal(result.assistantTexts[0], "available partial answer");
+  assert.match(result.assistantTexts[1]!, /finished_reason error/);
+  assert.doesNotMatch(JSON.stringify(result.assistantTexts), /synthetic-secret/);
+  assert.doesNotMatch(String(result.terminal.kind === "failed" && result.terminal.error), /synthetic-secret/);
+});
+
 test("AGY cumulative counters remain raw and never become turn usage, occupancy, or a free bill", () => {
   const native = snapshot();
   const result = buildAntigravityAttemptResult({ attempt: attempt(), snapshot: native });

@@ -14,3 +14,7 @@ export type {
   AgentMessage,
   NormalizedUsage,
 } from "openclaw/plugin-sdk/agent-harness-runtime";
+export type {
+  SessionEntryPatchAuthority,
+  SessionEntrySourceAuthority,
+} from "openclaw/plugin-sdk/session-store-runtime";

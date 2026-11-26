@@ -9,7 +9,7 @@ import {
 type Entry = { sessionId: string; lifecycleRevision: string; pluginExtensions?: Record<string, unknown> };
 const identity = { openclawSessionId: "session-1", openclawSessionKey: "agent:main:child:1", agentId: "main", storePath: "/fixture/canonical.sqlite" };
 const modelId = "gemini-3.8-flash-high";
-const scopeKey = "fixture:account-a:runtime-a:project-a";
+const scopeKey = "fixture:native-binding-key";
 const qualifiedFixture = { atomicMutation: { evidence: "SIMULATED atomic snapshot/commit fixture; not host P05 qualification" } };
 const noOp = () => {};
 const key = (p: { sessionKey: string; agentId?: string; storePath?: string }) => JSON.stringify([p.storePath, p.agentId, p.sessionKey]);
@@ -18,22 +18,28 @@ function createRuntime() {
   const rows = new Map<string, Entry>();
   let beforeCommit: (() => void | Promise<void>) | undefined;
   const runtime = {
-    getSessionEntry(p: { sessionKey: string; agentId?: string; storePath?: string }) {
+    async getSessionEntryAsync(p: { sessionKey: string; agentId?: string; storePath?: string }) {
       const row = rows.get(key(p));
       return row ? structuredClone(row) : undefined;
     },
-    listSessionEntries() { throw new Error("must never infer canonical authority by listing/default selection"); },
-    async patchSessionEntry(p: { sessionKey: string; agentId?: string; storePath?: string; assertCommitAllowed?: () => void;
-      update: (row: Entry) => Partial<Entry> | null | Promise<Partial<Entry> | null> }) {
+    async withCurrentSessionEntry<T>(p: { sessionKey: string; agentId?: string; storePath?: string }, consume: (entry: Entry | undefined) => T) {
+      const entry = await this.getSessionEntryAsync(p);
+      assert.deepEqual(entry, rows.get(key(p)), "SIMULATED current-session snapshot is stale");
+      return consume(entry as Entry | undefined);
+    },
+    async listSessionEntriesAsync() { throw new Error("must never infer canonical authority by listing/default selection"); },
+    async prepareSessionEntryPatch(p: { sessionKey: string; agentId?: string; storePath?: string; authority?: { kind: "host"; assertCurrent: () => void } | { kind: "source"; source: () => void };
+      prepare: (row: Entry) => Partial<Entry> | null | Promise<Partial<Entry> | null> }) {
       const row = rows.get(key(p));
       if (!row) return null;
       const snapshot = JSON.stringify(row);
-      const patch = await p.update(structuredClone(row));
+      const patch = await p.prepare(structuredClone(row));
       await beforeCommit?.();
       // This fixture models a host transaction; it does not establish real
       // host cross-process behavior. Competing snapshots never overwrite.
       if (JSON.stringify(rows.get(key(p))) !== snapshot) throw new Error("SIMULATED host snapshot conflict");
-      p.assertCommitAllowed?.();
+      if (p.authority?.kind === "source") p.authority.source();
+      else p.authority?.assertCurrent();
       const next = patch ? { ...row, ...structuredClone(patch) } : row;
       rows.set(key(p), next);
       return structuredClone(next);
@@ -62,7 +68,7 @@ test("fresh/resume binding survives instance restart in canonical metadata and p
   await f.bindings.endAttempt(first, { terminationConfirmed: true });
   assert.throws(first.assertActive, /retired/);
   const restarted = new AntigravitySessionBindings(f.runtime, qualifiedFixture);
-  assert.deepEqual(restarted.resolve(identity), binding);
+  assert.deepEqual(await restarted.resolve(identity), binding);
   const resumed = await restarted.beginAttempt({ ...identity, modelId, scopeKey, assertActive: noOp });
   assert.deepEqual(resumed.binding, binding);
   assert.equal(resumed.epoch, first.epoch);
@@ -86,21 +92,21 @@ test("missing host generation cannot create an invented baseline", async () => {
   assert.equal(f.get().pluginExtensions, undefined);
 });
 
-test("model, project/account/runtime scope changes reject resume without altering metadata", async () => {
+test("model or captured binding key changes reject resume without altering metadata", async () => {
   const f = createRuntime();
   const lease = await begin(f); await bind(f, lease); await f.bindings.endAttempt(lease, { terminationConfirmed: true });
   const before = structuredClone(f.get());
-  for (const extra of [{ modelId: "gemini-3.8-flash-low" }, { scopeKey: "fixture:account-b:runtime-a:project-a" }, { scopeKey: "fixture:account-a:runtime-a:project-b" }]) {
+  for (const extra of [{ modelId: "gemini-3.8-flash-low" }, { scopeKey: "fixture:other-binding-key" }]) {
     await assert.rejects(begin(f, extra), /scope changed/);
     assert.deepEqual(f.get(), before);
   }
 });
 
-test("cross-project/session/store metadata cannot be copied into another canonical owner", async () => {
+test("session/store metadata cannot be copied into another canonical owner", async () => {
   const f = createRuntime(); const lease = await begin(f); await bind(f, lease);
   for (const alternate of [{ ...identity, storePath: "/other/canonical.sqlite" }, { ...identity, agentId: "other" }, { ...identity, openclawSessionKey: "agent:main:child:2" }, { ...identity, openclawSessionId: "session-2" }]) {
     f.set(alternate, { ...structuredClone(f.get()), sessionId: alternate.openclawSessionId });
-    assert.throws(() => f.bindings.resolve(alternate), /invalid ANTIGRAVITY/);
+    await assert.rejects(() => f.bindings.resolve(alternate), /invalid ANTIGRAVITY/);
   }
 });
 
@@ -124,12 +130,12 @@ test("stale init cannot write after reset and reset keeps epoch tombstone", asyn
   const f = createRuntime(); const lease = await begin(f); await bind(f, lease);
   let observedRevocation = false;
   assert.equal(await f.bindings.clear({ ...identity, cancelAndDrain: async () => {
-    assert.throws(lease.assertActive, /stale/);
-    assert.throws(() => f.bindings.resolve(identity), /reset is pending/);
+    await assert.rejects(lease.assertCurrent, /stale/);
+    await assert.rejects(() => f.bindings.resolve(identity), /reset is pending/);
     observedRevocation = true;
   } }), true);
   assert.equal(observedRevocation, true);
-  assert.equal(f.bindings.resolve(identity), undefined);
+  assert.equal(await f.bindings.resolve(identity), undefined);
   const envelope = f.get().pluginExtensions?.antigravity as Record<string, unknown>;
   assert.notEqual(envelope.epoch, lease.epoch);
   assert.equal(envelope.binding, undefined);
@@ -151,7 +157,7 @@ test("failed host drain keeps reset pending and blocks fresh/resume", async () =
   const f = createRuntime(); const lease = await begin(f); await bind(f, lease);
   await assert.rejects(f.bindings.clear({ ...identity, cancelAndDrain: async () => { throw new Error("drain failed"); } }), /drain failed/);
   await assert.rejects(begin(f), /reset is pending/);
-  assert.throws(lease.assertActive, /stale/);
+  await assert.rejects(lease.assertCurrent, /stale/);
   await assert.rejects(f.bindings.clear({ ...identity, cancelAndDrain: async () => {} }), /reset already pending/);
 });
 
@@ -178,8 +184,8 @@ test("ownership lost after async update but before commit cannot persist stale i
 test("host lifecycle revision change fences existing callbacks and rejects stored resume", async () => {
   const f = createRuntime(); const lease = await begin(f); await bind(f, lease);
   f.get().lifecycleRevision = "host-generation-2";
-  assert.throws(lease.assertActive, /invalid ANTIGRAVITY/);
-  assert.throws(() => f.bindings.resolve(identity), /explicit host reset/);
+  await assert.rejects(lease.assertCurrent, /invalid ANTIGRAVITY/);
+  await assert.rejects(() => f.bindings.resolve(identity), /explicit host reset/);
 });
 
 test("fresh bind validates exact init model/conversation and cannot switch an existing conversation", async () => {
@@ -204,11 +210,11 @@ test("present malformed and legacy metadata rejects unchanged until explicitly r
   for (const bad of malformed) {
     const f = createRuntime(); f.get().pluginExtensions = { other: { keep: true }, antigravity: bad };
     const before = structuredClone(f.get());
-    assert.throws(() => f.bindings.resolve(identity), /invalid ANTIGRAVITY/);
+    await assert.rejects(() => f.bindings.resolve(identity), /invalid ANTIGRAVITY/);
     await assert.rejects(begin(f), /invalid ANTIGRAVITY/);
     assert.deepEqual(f.get(), before);
     assert.equal(await f.bindings.clear({ ...identity, cancelAndDrain: async () => {} }), true);
-    assert.equal(f.bindings.resolve(identity), undefined);
+    assert.equal(await f.bindings.resolve(identity), undefined);
     assert.deepEqual(f.get().pluginExtensions?.other, { keep: true });
   }
 });
@@ -216,33 +222,33 @@ test("present malformed and legacy metadata rejects unchanged until explicitly r
 
 test("failed persistence never fabricates a successful binding from the attempted value", async () => {
   const f = createRuntime(); const lease = await begin(f);
-  const original = f.runtime.patchSessionEntry;
-  f.runtime.patchSessionEntry = async () => null;
+  const original = f.runtime.prepareSessionEntryPatch;
+  f.runtime.prepareSessionEntryPatch = async () => null;
   await assert.rejects(bind(f, lease), /failed to persist.*do not retry native inference/);
-  assert.equal(f.bindings.resolve(identity), undefined);
-  f.runtime.patchSessionEntry = original;
+  assert.equal(await f.bindings.resolve(identity), undefined);
+  f.runtime.prepareSessionEntryPatch = original;
 });
 
 test("a competing canonical write between preparation and commit cannot be overwritten", async () => {
   const f = createRuntime(); const lease = await begin(f);
   f.beforeCommit(() => { f.get().pluginExtensions = { ...f.get().pluginExtensions, other: { concurrent: true } }; });
   await assert.rejects(bind(f, lease), /snapshot conflict/);
-  assert.equal(f.bindings.resolve(identity), undefined);
+  assert.equal(await f.bindings.resolve(identity), undefined);
   assert.deepEqual(f.get().pluginExtensions?.other, { concurrent: true });
 });
 
 
 test("settled final-result fence survives callback retirement and is revoked by another attempt", async () => {
   const f = createRuntime(); const lease = await begin(f); await bind(f, lease);
-  assert.throws(() => f.bindings.assertResultCurrent(lease), /not settled/);
+  await assert.rejects(() => f.bindings.assertResultCurrent(lease), /not settled/);
   await f.bindings.endAttempt(lease, { terminationConfirmed: true });
   assert.throws(lease.assertActive, /retired/);
-  f.bindings.assertResultCurrent(lease);
+  await f.bindings.assertResultCurrent(lease);
   const next = await begin(f);
-  assert.throws(() => f.bindings.assertResultCurrent(lease), /delivery revoked/);
+  await assert.rejects(() => f.bindings.assertResultCurrent(lease), /delivery revoked/);
   await f.bindings.endAttempt(next, { terminationConfirmed: true });
-  assert.throws(() => f.bindings.assertResultCurrent(lease), /delivery revoked/);
-  f.bindings.assertResultCurrent(next);
+  await assert.rejects(() => f.bindings.assertResultCurrent(lease), /delivery revoked/);
+  await f.bindings.assertResultCurrent(next);
 });
 
 test("reset and binding mismatch revoke delayed final-result delivery", async () => {
@@ -250,10 +256,10 @@ test("reset and binding mismatch revoke delayed final-result delivery", async ()
   await f.bindings.endAttempt(lease, { terminationConfirmed: true });
   const envelope = f.get().pluginExtensions?.antigravity as { binding: { conversationId: string } };
   envelope.binding.conversationId = "another-conversation";
-  assert.throws(() => f.bindings.assertResultCurrent(lease), /invalid ANTIGRAVITY/);
+  await assert.rejects(() => f.bindings.assertResultCurrent(lease), /invalid ANTIGRAVITY/);
   envelope.binding.conversationId = "conversation-1";
-  await f.bindings.clear({ ...identity, cancelAndDrain: async () => { assert.throws(() => f.bindings.assertResultCurrent(lease), /delivery revoked/); } });
-  assert.throws(() => f.bindings.assertResultCurrent(lease), /delivery revoked/);
+  await f.bindings.clear({ ...identity, cancelAndDrain: async () => { await assert.rejects(() => f.bindings.assertResultCurrent(lease), /delivery revoked/); } });
+  await assert.rejects(() => f.bindings.assertResultCurrent(lease), /delivery revoked/);
 });
 
 
@@ -274,7 +280,7 @@ test("retired cleanup cannot publish a delayed settled-attempt commit", async ()
   releaseCommit();
   await assert.rejects(settling, /cleanup ownership retired/);
   assert.deepEqual(f.get(), before);
-  assert.throws(() => f.bindings.assertResultCurrent(lease), /not settled/);
+  await assert.rejects(() => f.bindings.assertResultCurrent(lease), /not settled/);
   assert.throws(lease.assertActive, /retired/);
 });
 
@@ -293,14 +299,14 @@ test("reset deadline retains pending tombstone and late drain cannot clear it", 
   await drainStarted;
   await rejection;
   const pending = structuredClone(f.get());
-  assert.throws(() => f.bindings.resolve(identity), /reset is pending/);
+  await assert.rejects(() => f.bindings.resolve(identity), /reset is pending/);
   await assert.rejects(begin(f), /reset is pending/);
   releaseDrain();
   await new Promise<void>((resolve) => setImmediate(resolve));
   assert.equal(drainFinished, true, "timeout does not pretend the external callback stopped");
   assert.deepEqual(f.get(), pending);
-  assert.throws(() => f.bindings.resolve(identity), /reset is pending/);
-  assert.throws(lease.assertActive, /stale/);
+  await assert.rejects(() => f.bindings.resolve(identity), /reset is pending/);
+  await assert.rejects(lease.assertCurrent, /stale/);
 });
 
 test("reset deadline fences a delayed host final commit", async () => {
@@ -319,7 +325,7 @@ test("reset deadline fences a delayed host final commit", async () => {
   releaseCommit();
   await new Promise<void>((resolve) => setImmediate(resolve));
   assert.deepEqual(f.get(), pending);
-  assert.throws(() => f.bindings.resolve(identity), /reset is pending/);
+  await assert.rejects(() => f.bindings.resolve(identity), /reset is pending/);
 });
 
 test("reset budget cannot be disabled or widened past the shared maximum", async () => {
@@ -328,4 +334,44 @@ test("reset budget cannot be disabled or widened past the shared maximum", async
     await assert.rejects(f.bindings.clear({ ...identity, timeoutMs, cancelAndDrain: async () => {} }), /finite, positive and at most 6000/);
   }
   assert.deepEqual(f.get(), before);
+});
+
+test("old generic CLI bindings and foreign harness ownership require a host reset without conversion", async () => {
+  for (const previous of [
+    { cliSessionIds: { "antigravity-cli": "old-native-conversation" } },
+    { agentHarnessId: "another-harness" },
+  ]) {
+    const f = createRuntime(); Object.assign(f.get(), previous);
+    const before = structuredClone(f.get());
+    await assert.rejects(f.bindings.resolve(identity), /reset|new session/);
+    await assert.rejects(begin(f), /reset|new session/);
+    let drained = false;
+    await assert.rejects(f.bindings.clear({ ...identity, cancelAndDrain: async () => { drained = true; } }), /reset|new session/);
+    assert.equal(drained, false);
+    assert.deepEqual(f.get(), before);
+  }
+});
+
+test("deletion during prepared binding rejects once and never recreates the canonical row", async () => {
+  const f = createRuntime(); const lease = await begin(f);
+  let commits = 0;
+  f.beforeCommit(() => { commits++; f.rows.delete(identityKey(identity)); });
+  await assert.rejects(bind(f, lease), /snapshot conflict/);
+  assert.equal(commits, 1);
+  assert.equal(f.rows.has(identityKey(identity)), false);
+});
+
+test("owner revocation during an awaited full-entry check fences its late snapshot", async () => {
+  const f = createRuntime(); let active = true;
+  const lease = await begin(f, { assertActive: () => { if (!active) throw new Error("owner replaced"); } });
+  const read = f.runtime.getSessionEntryAsync.bind(f.runtime);
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  let entered!: () => void;
+  const started = new Promise<void>((resolve) => { entered = resolve; });
+  f.runtime.getSessionEntryAsync = async (params) => { const entry = await read(params); entered(); await gate; return entry; };
+  const pending = lease.assertCurrent();
+  await started; active = false; release();
+  await assert.rejects(pending, /owner replaced/);
+  assert.ok(f.get().pluginExtensions?.antigravity, "revocation does not clear a possibly owned durable claim");
 });

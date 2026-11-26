@@ -1,15 +1,15 @@
+import { inspectSessionRuntime, type OpenClawSessionRuntimeInput } from "./session-runtime.js";
 import type { OpenClawPluginApi } from "./types.js";
 
 export const OPENCLAW_SUPPORT_FLOOR = "2026.9.2";
 export const OPENCLAW_SUPPORT_RANGE = ">=2026.9.2";
-export const OPENCLAW_BUILD_SDK_VERSION = "2026.9.4";
+export const OPENCLAW_BUILD_SDK_VERSION = "2026.11.7";
 export const OPENCLAW_REQUIRED_SDK_SUBPATHS = Object.freeze([
   "openclaw/plugin-sdk/plugin-entry", "openclaw/plugin-sdk/agent-harness-runtime",
 ] as const);
 
 export const OPENCLAW_REQUIRED_REGISTRATION_CONTRACTS = Object.freeze([
-  "registerProvider", "registerModelCatalogProvider", "registerAgentHarness", "registerCliBackend",
-  "runtime.agent.session.getSessionEntry", "runtime.agent.session.patchSessionEntry",
+  "registerProvider", "registerModelCatalogProvider", "registerAgentHarness",
 ] as const);
 
 function valueAt(value: unknown, path: string): unknown {
@@ -43,9 +43,11 @@ export function inspectOpenClawCompatibility(api: unknown) {
   const parsed = stableVersion(version);
   const floor = stableVersion(OPENCLAW_SUPPORT_FLOOR)!;
   const versionEligible = parsed !== null && atLeast(parsed, floor);
-  const missingContracts = OPENCLAW_REQUIRED_REGISTRATION_CONTRACTS.filter(
-    (path) => typeof valueAt(api, path) !== "function",
-  );
+  const sessions = inspectSessionRuntime(valueAt(api, "runtime.agent.session") as OpenClawSessionRuntimeInput | undefined);
+  const missingContracts: string[] = [
+    ...OPENCLAW_REQUIRED_REGISTRATION_CONTRACTS.filter((path) => typeof valueAt(api, path) !== "function"),
+    ...sessions.missing.map((key) => `runtime.agent.session.${key}`),
+  ];
   const diagnostics: string[] = [];
   if (!versionEligible) diagnostics.push(runtimeVersion === null
     ? "Missing required OpenClaw contract runtime.version; use a host exposing its public runtime version."
@@ -53,6 +55,7 @@ export function inspectOpenClawCompatibility(api: unknown) {
   for (const path of missingContracts) diagnostics.push(`Missing required OpenClaw contract ${path}; the installed host API is not compatible with this plugin build.`);
   return {
     runtimeVersion,
+    sessionAdapter: sessions.kind,
     buildSdkVersion: OPENCLAW_BUILD_SDK_VERSION,
     supportFloor: OPENCLAW_SUPPORT_FLOOR,
     supportRange: OPENCLAW_SUPPORT_RANGE,
@@ -67,11 +70,18 @@ export function inspectOpenClawCompatibility(api: unknown) {
     },
     installedQualification: "pending" as const,
     executionQualification: {
-      status: "required-before-native-start" as const,
-      evidence: ["P03 native runtime/account identity", "P05 atomic session mutation and final-result consumer"],
+      status: "separate-native-validation" as const,
+      evidence: ["P03 native execution and exact conversation resume", "P05 atomic session mutation and final-result consumer"],
     },
     hostObservation: "read-only-public-contract" as const,
   };
+}
+
+/** Structured native outcomes and provider thinking profiles are verified
+ * against 2026.11.7–11.9. Older supported hosts retain plain rows/exact selection. */
+export function supportsNativeCatalogControls(version: unknown): boolean {
+  const parsed = stableVersion(version);
+  return parsed !== null && atLeast(parsed, [2026, 11, 7]);
 }
 
 /** Check every required registration function before invoking any registrar. */

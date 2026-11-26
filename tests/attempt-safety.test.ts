@@ -8,13 +8,14 @@ import type { AgentHarnessAttemptParamsV2 } from "openclaw/plugin-sdk/agent-harn
 import { parseAgyPrintTimeoutMs, resolveAntigravityPluginConfig } from "../src/config.ts";
 import { runAntigravityAttempt } from "../src/harness/run-attempt.ts";
 import { AntigravitySessionBindings, type AntigravitySessionRuntime } from "../src/harness/session-bindings.ts";
+import { createAntigravitySessionRuntime } from "../src/host/session-runtime.ts";
 
 // These subprocesses simulate AGY. No native AGY binary, credentials or inference.
 const help = "--input-format stream-json\n--output-format stream-json\n--model ID\n--conversation ID\n--print-timeout DURATION\n--sandbox\n--project NAME\n--new-project\n--add-dir DIR\n--agent NAME\n--mode MODE\n--log-file PATH\n--dangerously-skip-permissions";
 const model = "new-opaque-model/effort.v7";
 
 async function fixture(mode = "success") {
-  const root = await mkdtemp(join(tmpdir(), "agy-p02t002-attempt-"));
+  const root = await mkdtemp(join(tmpdir(), "agy-attempt-safety-"));
   const command = join(root, "fake-agy.cjs");
   const calls = join(root, "calls.jsonl");
   const effect = join(root, "effect");
@@ -76,6 +77,27 @@ async function waitFor(path: string) {
   for (let i = 0; i < 300; i++) { if (await exists(path)) return; await new Promise((resolve) => setTimeout(resolve, 10)); }
   throw new Error("fixture marker never appeared");
 }
+
+test("host-owned execution requirement rejects before any native process or discovery", async () => {
+  const mock = await fixture();
+  try {
+    const request = attempt(mock.root);
+    const hostCapabilities = {
+      ...request.hostCapabilities,
+      preparedEnvironment() {
+        return { credentialScrubEnv: {}, localIdentityEnv: {}, managedLocalIdentity: true, hostExecutionRequired: true as const };
+      },
+    };
+    const result = await runAntigravityAttempt({
+      hostContracts: sourceHostContracts(), attempt: { ...request, hostCapabilities },
+      pluginConfig: resolveAntigravityPluginConfig({ command: mock.command }), sessionBindings: bindings(),
+    });
+    assert.equal(result.terminal.kind, "failed");
+    assert.match(result.assistantTexts?.join("\n") ?? "", /host-owned execution tools/u);
+    assert.equal(await exists(mock.calls), false);
+    assert.equal(await exists(mock.discovery), false);
+  } finally { await mock.cleanup(); }
+});
 
 test("pre-abort and expired budget launch no preflight, discovery or inference", async () => {
   const mock = await fixture();
@@ -304,16 +326,20 @@ test("a delayed host update checks the retired callback before mutating session 
     sessionId: "host-session", lifecycleRevision: "SIMULATED:lifecycle-v1",
   };
   const runtime = {
-    getSessionEntry() { return structuredClone(entry); }, listSessionEntries() { return []; },
-    async patchSessionEntry({ update, assertCommitAllowed }: {
-      update: (value: typeof entry) => Partial<typeof entry> | null;
-      assertCommitAllowed?: () => void;
+    async getSessionEntryAsync() { return structuredClone(entry); }, async listSessionEntriesAsync() { return []; },
+    async withCurrentSessionEntry<T>(_params: unknown, consume: (value: typeof entry) => T) {
+      return consume(structuredClone(entry));
+    },
+    async prepareSessionEntryPatch({ prepare, authority }: {
+      prepare: (value: typeof entry) => Partial<typeof entry> | null | Promise<Partial<typeof entry> | null>;
+      authority?: { kind: "host"; assertCurrent: () => void } | { kind: "source"; source: () => void };
     }) {
-      const patch = update(structuredClone(entry));
+      const patch = await prepare(structuredClone(entry));
       const bindingCommit = Boolean(patch?.pluginExtensions?.antigravity?.binding);
       if (bindingCommit) { entered(); await gate; }
       try {
-        assertCommitAllowed?.();
+        if (authority?.kind === "source") authority.source();
+        else authority?.assertCurrent();
         if (patch) { entry = { ...entry, ...patch }; if (bindingCommit) writes++; }
         return structuredClone(entry);
       } catch (error) { lateError = error; throw error; }
@@ -328,4 +354,37 @@ test("a delayed host update checks the retired callback before mutating session 
     assert.equal(writes, 0); assert.ok(lateError instanceof Error);
     assert.equal(result.currentAttemptReplayMetadata?.replaySafe, false);
   } finally { release(); await mock.cleanup(); }
+});
+
+
+test("foreign generation replacement or deletion behind a stale full read prevents native launch", async () => {
+  const mock = await fixture();
+  try {
+    for (const deleted of [false, true]) {
+      let reads = 0, preparations = 0, previews = 0;
+      const stale = { sessionId: "host-session", lifecycleRevision: "generation-old" };
+      const adapter = createAntigravitySessionRuntime({
+        async getSessionEntryAsync() { reads++; return structuredClone(stale); },
+        async listSessionEntriesAsync() { throw new Error("metadata listing cannot grant authority"); },
+        async withSessionEntriesAsync(params, consume) {
+          const store = params.stores[0]!;
+          return consume(deleted ? [] : [{ agentId: store.agentId, storePath: store.storePath,
+            sessionKey: store.sessionKeys[0]!, entry: { ...stale, lifecycleRevision: "generation-new" } }]);
+        },
+        async prepareSessionEntryPatch() { preparations++; throw new Error("stale selection cannot prepare"); },
+      });
+      const result = await runAntigravityAttempt({
+        hostContracts: sourceHostContracts({ preview: { evidence: "SIMULATED stale-output sink", publish() { previews++; } } }),
+        attempt: attempt(mock.root), pluginConfig: resolveAntigravityPluginConfig({ command: mock.command }),
+        sessionBindings: new AntigravitySessionBindings(adapter, { atomicMutation: sourceSessionMutation }),
+      });
+      assert.equal(result.terminal.kind, "failed");
+      assert.match(result.assistantTexts.join("\n"), /snapshot is stale/);
+      assert.equal(result.antigravityEvidence.invocation, "not_started");
+      assert.equal(await exists(mock.calls), false);
+      assert.equal(reads, 1);
+      assert.equal(preparations, 0);
+      assert.equal(previews, 0);
+    }
+  } finally { await mock.cleanup(); }
 });
